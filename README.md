@@ -8,7 +8,7 @@ Pin a tagged release:
 
 ```json
 "dependencies": {
-  "@team/shell": "github:robte425-code/team-shell#v1.1.0"
+  "@team/shell": "git+https://github.com/robte425-code/team-shell.git#v1.1.0"
 }
 ```
 
@@ -16,6 +16,8 @@ Pin a tagged release:
 // next.config.js — the package ships TypeScript source
 transpilePackages: ["@team/shell"],
 ```
+
+npm records it in the lockfile as `git+ssh://…`, but installs it as an HTTPS tarball, so Vercel and CI need no SSH key.
 
 To roll out a change, tag a new release here and bump the tag in each app.
 
