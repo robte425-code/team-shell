@@ -9,6 +9,8 @@ export const ADMIN_VIEW_STORAGE_KEY = "teamvoc-admin-view";
 export interface ViewAsUser {
   email: string;
   displayName: string;
+  /** App-specific id, for apps that switch by id (Payroll: employee id). */
+  id?: string;
 }
 
 export interface ImpersonationStatus {

@@ -3,10 +3,12 @@
 import { Fragment, useEffect, useRef, useState, type ElementType } from "react";
 import type { AdminNavSection } from "../nav-config";
 
-function Chevron({ open }: { open: boolean }) {
+function Chevron({ open, plain }: { open: boolean; plain?: boolean }) {
   return (
     <svg
-      className={`h-4 w-4 shrink-0 text-stone-500 transition-transform ${open ? "rotate-180" : ""}`}
+      className={
+        plain ? undefined : `h-4 w-4 shrink-0 text-stone-500 transition-transform ${open ? "rotate-180" : ""}`
+      }
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -17,15 +19,50 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
+const TAILWIND = {
+  root: "relative shrink-0",
+  trigger:
+    "flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-800 shadow-sm transition-colors hover:bg-stone-50",
+  label: "max-w-[10rem] truncate sm:max-w-none",
+  menu: "absolute left-0 top-full z-30 mt-1 min-w-[12rem] rounded-lg border border-stone-200 bg-white py-1 shadow-lg",
+  sectionDivider: "mt-1 border-t border-stone-100",
+  heading: "border-b border-stone-100 px-3 py-2 last:border-b-0",
+  headingText: "text-xs font-semibold uppercase tracking-wide text-stone-500",
+  item: "block px-3 py-2 text-sm font-medium",
+  itemCurrent: "bg-stone-100 text-stone-900",
+  itemIdle: "text-stone-600 hover:bg-stone-50 hover:text-stone-900",
+  separator: "my-1 border-t border-stone-200",
+};
+
+/** Class names from styles/team-shell.css, for static pages without Tailwind. */
+const PLAIN: typeof TAILWIND = {
+  root: "team-admin-nav",
+  trigger: "team-admin-nav-trigger",
+  label: "",
+  menu: "team-admin-nav-menu",
+  sectionDivider: "team-admin-nav-separator",
+  heading: "team-admin-nav-menu-heading",
+  headingText: "",
+  item: "team-admin-nav-item",
+  itemCurrent: "is-current",
+  itemIdle: "",
+  separator: "team-admin-nav-separator",
+};
+
 export function AdminNavDropdown({
   sections,
   pathname,
   LinkComponent,
+  variant = "tailwind",
 }: {
   sections: AdminNavSection[];
   pathname: string;
   LinkComponent: ElementType<any>;
+  /** "tailwind" (default) or "plain" (styles/team-shell.css class names). */
+  variant?: "tailwind" | "plain";
 }) {
+  const plain = variant === "plain";
+  const c = plain ? PLAIN : TAILWIND;
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -47,38 +84,29 @@ export function AdminNavDropdown({
   const Link = LinkComponent as any;
 
   return (
-    <div className="relative shrink-0" ref={rootRef}>
+    <div className={c.root} ref={rootRef}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-800 shadow-sm transition-colors hover:bg-stone-50"
+        className={c.trigger}
       >
-        <span className="max-w-[10rem] truncate sm:max-w-none">Admin</span>
-        <Chevron open={open} />
+        <span className={c.label || undefined}>Admin</span>
+        <Chevron open={open} plain={plain} />
       </button>
       {open && (
-        <ul
-          role="menu"
-          aria-label="Admin"
-          className="absolute left-0 top-full z-30 mt-1 min-w-[12rem] rounded-lg border border-stone-200 bg-white py-1 shadow-lg"
-        >
+        <ul role="menu" aria-label="Admin" className={c.menu}>
           {sections.map((section, si) => (
             <li key={section.label} role="presentation">
-              {si > 0 && <div className="mt-1 border-t border-stone-100" />}
-              <div className="border-b border-stone-100 px-3 py-2 last:border-b-0">
-                <span className="text-xs font-semibold uppercase tracking-wide text-stone-500">
-                  {section.label}
-                </span>
+              {si > 0 && <div className={c.sectionDivider} />}
+              <div className={c.heading}>
+                <span className={c.headingText || undefined}>{section.label}</span>
               </div>
               {section.items.map((item) => {
                 const isCurrent = item.isActive?.(pathname) ?? false;
-                const className = `block px-3 py-2 text-sm font-medium ${
-                  isCurrent
-                    ? "bg-stone-100 text-stone-900"
-                    : "text-stone-600 hover:bg-stone-50 hover:text-stone-900"
-                }`;
+                const stateClass = isCurrent ? c.itemCurrent : c.itemIdle;
+                const className = stateClass ? `${c.item} ${stateClass}` : c.item;
                 const itemKey = `${item.href}-${item.label}`;
                 const menuItem =
                   item.external ? (
@@ -103,7 +131,7 @@ export function AdminNavDropdown({
                 return (
                   <Fragment key={itemKey}>
                     {item.separatorBefore ? (
-                      <div role="separator" className="my-1 border-t border-stone-200" />
+                      <div role="separator" className={c.separator} />
                     ) : null}
                     {menuItem}
                   </Fragment>

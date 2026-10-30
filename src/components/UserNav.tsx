@@ -50,23 +50,31 @@ export function UserNav({
   pathname,
   LinkComponent,
   refreshKey,
+  variant = "tailwind",
 }: {
   links: UserNavLink[];
   pathname: string;
   LinkComponent: ElementType<any>;
   /** Change when impersonation or session identity changes to refetch unread state. */
   refreshKey?: string;
+  /**
+   * "tailwind" (default): Tailwind utility classes, for the Next.js apps.
+   * "plain": the class names in styles/team-shell.css (`.team-header-nav a`,
+   * `aria-current="page"`, `.has-unread-paystub`), for static pages without Tailwind.
+   */
+  variant?: "tailwind" | "plain";
 }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Link = LinkComponent as any;
   const payrollUnread = usePayrollUnread(refreshKey);
+  const plain = variant === "plain";
 
   return (
     <>
       {links.map((item) => {
         const isPayroll = item.navKey === PAYROLL_NAV_KEY;
         const unread = isPayroll && payrollUnread.hasUnread;
-        const unreadClass = unread ? unreadPayrollClass : "";
+        const unreadClass = unread ? (plain ? "has-unread-paystub" : unreadPayrollClass) : "";
         const unreadTitle = unread ? payrollUnread.title : undefined;
 
         if (item.kind === "internal") {
@@ -75,7 +83,13 @@ export function UserNav({
             <Link
               key={item.href + item.label}
               href={item.href}
-              className={`${linkClass} ${active ? "bg-stone-100 text-stone-900" : ""} ${unreadClass}`}
+              className={
+                plain
+                  ? unreadClass || undefined
+                  : `${linkClass} ${active ? "bg-stone-100 text-stone-900" : ""} ${unreadClass}`
+              }
+              aria-current={plain && active ? "page" : undefined}
+              data-nav-key={plain ? item.navKey : undefined}
               title={unreadTitle}
             >
               {item.label}
@@ -88,7 +102,8 @@ export function UserNav({
             href={item.href}
             target={item.openInNewTab ? "_blank" : undefined}
             rel={item.openInNewTab ? "noopener noreferrer" : undefined}
-            className={`${linkClass} ${unreadClass}`}
+            className={plain ? unreadClass || undefined : `${linkClass} ${unreadClass}`}
+            data-nav-key={plain ? item.navKey : undefined}
             title={unreadTitle}
           >
             {item.label}

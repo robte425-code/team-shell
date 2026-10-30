@@ -196,6 +196,25 @@ export function vocHotlineUserNav(pathname: string, env?: NodeJS.ProcessEnv): Us
   ];
 }
 
+/** Payroll's own pages are static HTML; its home is My balances. */
+export function payrollUserNav(pathname: string, env?: NodeJS.ProcessEnv): UserNavLink[] {
+  const urls = teamUrls(env);
+  return [
+    dashboardNavLink(env, false),
+    { kind: "external", href: urls.requests, label: "Requests" },
+    { kind: "external", href: `${urls.updates.replace(/\/$/, "")}/phone-book`, label: "Phone book" },
+    { kind: "external", href: urls.vocHotline, label: "Voc hotline" },
+    {
+      kind: "internal",
+      href: "/my-leave.html",
+      label: "Payroll",
+      isActive: () => true,
+      navKey: PAYROLL_NAV_KEY,
+    },
+    { kind: "external", href: urls.hr, label: "HR" },
+  ];
+}
+
 export function updatesAdminSections(
   _pathname: string,
   options?: { includePlatformHub?: boolean; includeAppAdmin?: boolean }
@@ -252,12 +271,16 @@ export function payrollAdminSections(
     label: "Admin",
     items: includeAppAdmin
       ? [
-          { href: "/my-leave.html", label: "My balances" },
-          { href: "/index.html", label: "Analyze spreadsheet" },
-          { href: "/payroll-data.html", label: "Payroll analytics" },
-          { href: "/rates.html", label: "Employee pay rates" },
-          { href: "/leave.html", label: "PTO/Sick management" },
-          { href: "/pay-stubs.html", label: "Upload paystubs" },
+          { href: "/my-leave.html", label: "My balances", isActive: (p) => p === "/my-leave.html" },
+          {
+            href: "/index.html",
+            label: "Analyze spreadsheet",
+            isActive: (p) => p === "/" || p === "/index.html",
+          },
+          { href: "/payroll-data.html", label: "Payroll analytics", isActive: (p) => p === "/payroll-data.html" },
+          { href: "/rates.html", label: "Employee pay rates", isActive: (p) => p === "/rates.html" },
+          { href: "/leave.html", label: "PTO/Sick management", isActive: (p) => p === "/leave.html" },
+          { href: "/pay-stubs.html", label: "Upload paystubs", isActive: (p) => p === "/pay-stubs.html" },
         ]
       : [],
   };
