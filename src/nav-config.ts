@@ -278,6 +278,7 @@ export function payrollAdminSections(
             isActive: (p) => p === "/" || p === "/index.html",
           },
           { href: "/payroll-data.html", label: "Payroll analytics", isActive: (p) => p === "/payroll-data.html" },
+          { href: "/cases.html", label: "Cases", isActive: (p) => p === "/cases.html" },
           { href: "/rates.html", label: "Employee pay rates", isActive: (p) => p === "/rates.html" },
           { href: "/leave.html", label: "PTO/Sick management", isActive: (p) => p === "/leave.html" },
           { href: "/pay-stubs.html", label: "Upload paystubs", isActive: (p) => p === "/pay-stubs.html" },
