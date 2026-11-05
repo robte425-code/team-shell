@@ -8,7 +8,7 @@ Pin a tagged release:
 
 ```json
 "dependencies": {
-  "@team/shell": "git+https://github.com/robte425-code/team-shell.git#v1.2.0"
+  "@team/shell": "git+https://github.com/robte425-code/team-shell.git#v1.3.0"
 }
 ```
 
