@@ -235,6 +235,7 @@ export function updatesAdminItems(): AdminNavItem[] {
     { href: "/manage/reminders", label: "Inactivity reminders", isActive: (p) => p.startsWith("/manage/reminders") },
     { href: "/manage/ticker", label: "Ticker", isActive: (p) => p.startsWith("/manage/ticker") },
     { href: "/manage/popup", label: "Pop-up message", isActive: (p) => p.startsWith("/manage/popup") },
+    { href: "/manage/appearance", label: "Appearance", isActive: (p) => p.startsWith("/manage/appearance") },
     { href: "/manage/usage-stats", label: "Usage stats", isActive: (p) => p.startsWith("/manage/usage-stats") },
   ];
 }
