@@ -73,30 +73,13 @@ async function defaultLoadUsers(usersApiPath: string): Promise<ViewAsUser[]> {
 
 const SELF_KEY = "__self__";
 
-export function ViewAsDropdown({
-  realEmail,
-  realName,
-  currentEmail,
-  isImpersonating,
-  usersApiPath = "/api/view-as-users",
-  impersonateApiPath = "/api/impersonate",
-  menuAlign = "right",
-  variant = "tailwind",
-  identifyBy = "email",
-  realUserId,
-  currentUserId,
-  loadUsers,
-  onChange,
-}: {
+export type ViewAsOptions = {
   realEmail: string;
   realName: string;
   currentEmail: string;
   isImpersonating: boolean;
   usersApiPath?: string;
   impersonateApiPath?: string;
-  menuAlign?: "left" | "right";
-  /** "tailwind" (default) or "plain" (styles/team-shell.css class names). */
-  variant?: "tailwind" | "plain";
   /** "employeeId" posts `{ employeeId: user.id }` instead of `{ email }` (Payroll). */
   identifyBy?: "email" | "employeeId";
   /** With identifyBy="employeeId": the signed-in admin's own id, left out of the list. */
@@ -110,53 +93,61 @@ export function ViewAsDropdown({
    * Leave unset to keep the default (reload).
    */
   onChange?: (change: ViewAsChange) => void | Promise<void>;
-}) {
-  const [open, setOpen] = useState(false);
+};
+
+/**
+ * The view-as list's state: loads the people when `active` turns on, and switches or exits.
+ * `onDone` runs after a successful change when the page isn't reloading (to close the menu).
+ */
+export function useViewAs(
+  {
+    realEmail,
+    realName,
+    currentEmail,
+    isImpersonating,
+    usersApiPath = "/api/view-as-users",
+    impersonateApiPath = "/api/impersonate",
+    identifyBy = "email",
+    realUserId,
+    currentUserId,
+    loadUsers,
+    onChange,
+  }: ViewAsOptions,
+  active: boolean,
+  onDone?: () => void
+) {
   const [users, setUsers] = useState<ViewAsUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const plain = variant === "plain";
-  const c = plain ? PLAIN : TAILWIND;
   const byId = identifyBy === "employeeId";
   const userKey = (u: ViewAsUser) => (byId && u.id != null ? String(u.id) : u.email);
 
   useEffect(() => {
-    function onPointerDown(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
-  }, []);
-
-  useEffect(() => {
-    if (!open || users.length > 0) return;
-    let active = true;
+    if (!active || users.length > 0) return;
+    let live = true;
     setLoading(true);
     setError(null);
     (loadUsers ? loadUsers() : defaultLoadUsers(usersApiPath))
       .then((list) => {
-        if (active) setUsers(list);
+        if (live) setUsers(list);
       })
       .catch((e: Error) => {
-        if (active) setError(e?.message || "Could not load users");
+        if (live) setError(e?.message || "Could not load users");
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (live) setLoading(false);
       });
     return () => {
-      active = false;
+      live = false;
     };
-    // loadUsers is read when the menu opens; a new function identity alone shouldn't refetch.
+    // loadUsers is read when the list opens; a new function identity alone shouldn't refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, users.length, usersApiPath]);
+  }, [active, users.length, usersApiPath]);
 
   async function afterSuccess(change: ViewAsChange) {
     if (!onChange) return; // the helper already reloaded the page
-    setOpen(false);
+    onDone?.();
     setBusyKey(null);
     await onChange(change);
   }
@@ -205,10 +196,53 @@ export function ViewAsDropdown({
       ? String(u.id) === String(realUserId)
       : u.email.toLowerCase() === realEmailLower;
   const isCurrentUser = (u: ViewAsUser) =>
-    byId && currentUserId != null && u.id != null
+    isImpersonating &&
+    (byId && currentUserId != null && u.id != null
       ? String(u.id) === String(currentUserId)
-      : u.email.toLowerCase() === currentEmail.toLowerCase();
+      : u.email.toLowerCase() === currentEmail.toLowerCase());
   const others = users.filter((u) => !isSelf(u));
+
+  return {
+    others,
+    loading,
+    error,
+    busyKey,
+    selfBusy: busyKey === SELF_KEY,
+    isImpersonating,
+    realName,
+    userKey,
+    isCurrentUser,
+    selectUser,
+    exitViewAs,
+  };
+}
+
+export function ViewAsDropdown({
+  menuAlign = "right",
+  variant = "tailwind",
+  ...options
+}: ViewAsOptions & {
+  menuAlign?: "left" | "right";
+  /** "tailwind" (default) or "plain" (styles/team-shell.css class names). */
+  variant?: "tailwind" | "plain";
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const plain = variant === "plain";
+  const c = plain ? PLAIN : TAILWIND;
+  const v = useViewAs(options, open, () => setOpen(false));
+  const { isImpersonating, realName, busyKey, loading, error, others } = v;
+
+  useEffect(() => {
+    function onPointerDown(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, []);
+
   const alignClass = plain ? "" : menuAlign === "right" ? "right-0 sm:left-auto sm:right-0" : "left-0";
 
   return (
@@ -247,7 +281,7 @@ export function ViewAsDropdown({
                 type="button"
                 role="menuitem"
                 disabled={busyKey === SELF_KEY}
-                onClick={exitViewAs}
+                onClick={v.exitViewAs}
                 className={c.self}
               >
                 {busyKey === SELF_KEY ? "Switching…" : `Yourself (${realName})`}
@@ -258,8 +292,8 @@ export function ViewAsDropdown({
           {error && <li className={c.error}>{error}</li>}
           {!loading &&
             others.map((user) => {
-              const key = userKey(user);
-              const isCurrent = isImpersonating && isCurrentUser(user);
+              const key = v.userKey(user);
+              const isCurrent = v.isCurrentUser(user);
               const busy = busyKey === key;
               const stateClass = isCurrent ? c.itemCurrent : c.itemIdle;
               return (
@@ -268,7 +302,7 @@ export function ViewAsDropdown({
                     type="button"
                     role="menuitem"
                     disabled={Boolean(busyKey)}
-                    onClick={() => selectUser(user)}
+                    onClick={() => v.selectUser(user)}
                     className={[c.item, stateClass, c.itemDisabled].filter(Boolean).join(" ")}
                   >
                     <span className={c.name}>{user.displayName}</span>

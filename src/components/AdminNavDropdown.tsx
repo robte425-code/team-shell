@@ -1,7 +1,8 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState, type ElementType } from "react";
+import { Fragment, useEffect, useRef, useState, type ElementType, type KeyboardEvent } from "react";
 import type { AdminNavSection } from "../nav-config";
+import { moveMenuFocus } from "../ui/ActionMenu";
 
 function Chevron({ open, plain }: { open: boolean; plain?: boolean }) {
   return (
@@ -22,16 +23,16 @@ function Chevron({ open, plain }: { open: boolean; plain?: boolean }) {
 const TAILWIND = {
   root: "relative shrink-0",
   trigger:
-    "flex items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-800 shadow-sm transition-colors hover:bg-stone-50",
+    "flex h-9 items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-3 text-sm font-semibold text-stone-900 transition-colors hover:bg-stone-50 aria-expanded:border-stone-900 aria-expanded:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600",
   label: "max-w-[10rem] truncate sm:max-w-none",
-  menu: "absolute left-0 top-full z-30 mt-1 min-w-[12rem] rounded-lg border border-stone-200 bg-white py-1 shadow-lg",
-  sectionDivider: "mt-1 border-t border-stone-100",
-  heading: "border-b border-stone-100 px-3 py-2 last:border-b-0",
-  headingText: "text-xs font-semibold uppercase tracking-wide text-stone-500",
-  item: "block px-3 py-2 text-sm font-medium",
-  itemCurrent: "bg-stone-100 text-stone-900",
-  itemIdle: "text-stone-600 hover:bg-stone-50 hover:text-stone-900",
-  separator: "my-1 border-t border-stone-200",
+  menu: "absolute top-full z-50 mt-2 w-64 rounded-xl border border-stone-200 bg-white p-1.5 shadow-[0_12px_32px_rgba(28,25,23,0.14)]",
+  sectionDivider: "mx-1 my-1.5 h-px bg-stone-100",
+  heading: "px-2.5 pb-1 pt-2",
+  headingText: "text-[11.5px] font-bold uppercase tracking-[0.06em] text-stone-500",
+  item: "block rounded-lg px-2.5 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600",
+  itemCurrent: "bg-stone-100 font-semibold text-stone-900",
+  itemIdle: "text-stone-800 hover:bg-stone-100 hover:text-stone-900 focus:bg-stone-100",
+  separator: "mx-1 my-1.5 h-px bg-stone-100",
 };
 
 /** Class names from styles/team-shell.css, for static pages without Tailwind. */
@@ -54,17 +55,22 @@ export function AdminNavDropdown({
   pathname,
   LinkComponent,
   variant = "tailwind",
+  align = "left",
 }: {
   sections: AdminNavSection[];
   pathname: string;
   LinkComponent: ElementType<any>;
   /** "tailwind" (default) or "plain" (styles/team-shell.css class names). */
   variant?: "tailwind" | "plain";
+  /** Which edge of the button the menu lines up with. */
+  align?: "left" | "right";
 }) {
   const plain = variant === "plain";
   const c = plain ? PLAIN : TAILWIND;
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
     function onPointerDown(e: MouseEvent) {
@@ -80,14 +86,42 @@ export function AdminNavDropdown({
     setOpen(false);
   }, [pathname]);
 
+  function onMenuKeyDown(e: KeyboardEvent<HTMLUListElement>) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    } else if (e.key === "Tab") {
+      setOpen(false);
+    } else {
+      moveMenuFocus(e, menuRef.current);
+    }
+  }
+
+  function onTriggerKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
+    if (e.key === "ArrowDown" || (e.key === "Escape" && open)) {
+      e.preventDefault();
+      if (e.key === "Escape") {
+        setOpen(false);
+        return;
+      }
+      setOpen(true);
+      requestAnimationFrame(() =>
+        menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+      );
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Link = LinkComponent as any;
 
   return (
     <div className={c.root} ref={rootRef}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
+        onKeyDown={onTriggerKeyDown}
         aria-expanded={open}
         aria-haspopup="menu"
         className={c.trigger}
@@ -96,10 +130,17 @@ export function AdminNavDropdown({
         <Chevron open={open} plain={plain} />
       </button>
       {open && (
-        <ul role="menu" aria-label="Admin" className={c.menu}>
+        <ul
+          ref={menuRef}
+          role="menu"
+          aria-label="Admin"
+          onKeyDown={onMenuKeyDown}
+          className={plain ? c.menu : `${c.menu} ${align === "right" ? "right-0" : "left-0"}`}
+          data-align={plain ? align : undefined}
+        >
           {sections.map((section, si) => (
             <li key={section.label} role="presentation">
-              {si > 0 && <div className={c.sectionDivider} />}
+              {si > 0 && <div role="separator" className={c.sectionDivider} />}
               <div className={c.heading}>
                 <span className={c.headingText || undefined}>{section.label}</span>
               </div>
@@ -114,6 +155,7 @@ export function AdminNavDropdown({
                       role="menuitem"
                       href={item.href}
                       className={className}
+                      aria-current={isCurrent ? "page" : undefined}
                       onClick={() => setOpen(false)}
                     >
                       {item.label}
@@ -123,6 +165,7 @@ export function AdminNavDropdown({
                       role="menuitem"
                       href={item.href}
                       className={className}
+                      aria-current={isCurrent ? "page" : undefined}
                       onClick={() => setOpen(false)}
                     >
                       {item.label}
