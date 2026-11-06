@@ -12,10 +12,9 @@
 import { useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
-import { AdminNavDropdown } from "../components/AdminNavDropdown";
 import { ImpersonationBanner } from "../components/ImpersonationBanner";
-import { UserNav } from "../components/UserNav";
-import { ViewAsDropdown, type ViewAsChange } from "../components/ViewAsDropdown";
+import { TeamHeader } from "../components/TeamHeader";
+import type { ViewAsChange } from "../components/ViewAsDropdown";
 import type { ImpersonationStatus, ViewAsUser } from "../impersonation/constants";
 import { payrollAdminSections, payrollUserNav, teamUrls } from "../nav-config";
 
@@ -79,6 +78,10 @@ type ShellState = {
   impersonating: boolean;
   realName: string;
   realEmail: string;
+  /** The signed-in person, for the account menu. */
+  userName: string;
+  userEmail: string;
+  userRole: string;
   currentEmail: string;
   viewerEmployeeId: string | null;
   activeEmployeeId: string | null;
@@ -167,72 +170,49 @@ function Shell({
     includePlatformHub: s.includePlatformHub,
   });
 
+  const viewAs =
+    options.enableViewAs && s.viewAsVisible
+      ? {
+          identifyBy: "employeeId" as const,
+          realEmail: s.realEmail,
+          realName: s.realName,
+          realUserId: s.viewerEmployeeId,
+          currentEmail: s.currentEmail,
+          currentUserId: s.activeEmployeeId,
+          isImpersonating: s.impersonating,
+          impersonateApiPath: IMPERSONATE_API,
+          usersApiPath: VIEW_AS_USERS_API,
+          loadUsers: loadPayrollUsers,
+          onChange: onViewAsChange,
+        }
+      : null;
+
   return (
-    <>
-      {s.banner && (
-        <ImpersonationBanner
-          variant="plain"
-          name={s.banner.name}
-          email={s.banner.email}
-          apiPath={IMPERSONATE_API}
-          onChange={onViewAsChange ? () => onViewAsChange({ type: "stop" }) : undefined}
-        />
-      )}
-      <header className="team-header">
-        <div className="team-header-border">
-          <div className="team-header-bar">
-            <div className="team-header-left">
-              <a href={`${updatesUrl}/`} className="team-header-logo">
-                <img
-                  src={options.logoSrc || "./assets/team-logo.png"}
-                  alt="Team Vocational Services"
-                  width={220}
-                  height={80}
-                />
-              </a>
-              <nav className="team-header-nav" aria-label="Main">
-                <UserNav
-                  variant="plain"
-                  links={payrollUserNav(window.location.pathname, ENV)}
-                  pathname={window.location.pathname}
-                  LinkComponent="a"
-                  refreshKey={String(s.badgeKey)}
-                />
-              </nav>
-            </div>
-            <div className="team-header-right">
-              {options.enableViewAs && s.viewAsVisible && (
-                <ViewAsDropdown
-                  variant="plain"
-                  identifyBy="employeeId"
-                  realEmail={s.realEmail}
-                  realName={s.realName}
-                  realUserId={s.viewerEmployeeId}
-                  currentEmail={s.currentEmail}
-                  currentUserId={s.activeEmployeeId}
-                  isImpersonating={s.impersonating}
-                  impersonateApiPath={IMPERSONATE_API}
-                  usersApiPath={VIEW_AS_USERS_API}
-                  loadUsers={loadPayrollUsers}
-                  onChange={onViewAsChange}
-                />
-              )}
-              {s.adminVisible && sections.length > 0 && (
-                <AdminNavDropdown
-                  variant="plain"
-                  sections={sections}
-                  pathname={adminPathname}
-                  LinkComponent="a"
-                />
-              )}
-              <a href="/logout" className="team-header-signout">
-                Sign out
-              </a>
-            </div>
-          </div>
-        </div>
-      </header>
-    </>
+    <TeamHeader
+      variant="plain"
+      homeHref={`${updatesUrl}/`}
+      logoSrc={options.logoSrc || "./assets/team-logo.png"}
+      LinkComponent="a"
+      pathname={window.location.pathname}
+      adminPathname={adminPathname}
+      links={payrollUserNav(window.location.pathname, ENV)}
+      refreshKey={String(s.badgeKey)}
+      adminSections={s.adminVisible ? sections : []}
+      user={{ name: s.userName, email: s.userEmail, roleLabel: s.userRole }}
+      viewAs={viewAs}
+      signOutHref="/logout"
+      banner={
+        s.banner ? (
+          <ImpersonationBanner
+            variant="plain"
+            name={s.banner.name}
+            email={s.banner.email}
+            apiPath={IMPERSONATE_API}
+            onChange={onViewAsChange ? () => onViewAsChange({ type: "stop" }) : undefined}
+          />
+        ) : null
+      }
+    />
   );
 }
 
@@ -254,6 +234,9 @@ function mount(options: MountOptions = {}): ShellController | null {
     impersonating: false,
     realName: "Yourself",
     realEmail: "",
+    userName: "",
+    userEmail: "",
+    userRole: "",
     currentEmail: "",
     viewerEmployeeId: null,
     activeEmployeeId: null,
@@ -303,6 +286,13 @@ function mount(options: MountOptions = {}): ShellController | null {
     setGreeting() {},
     updateBanner,
     applyMyLeaveMeta(data) {
+      // While viewing as someone, the employee fields are theirs; the viewer is the admin.
+      store.set(
+        data.impersonating
+          ? { userName: data.viewerDisplayName || store.get().userName }
+          : { userName: data.employeeName || "", userEmail: data.employeeLoginEmail || "" }
+      );
+      store.set({ userRole: data.isSuperAdmin ? "Super admin" : data.isAdmin ? "Admin" : "" });
       if (data.isAdmin) {
         store.set({
           viewerEmployeeId: idOrNull(data.viewerEmployeeId),
@@ -336,6 +326,13 @@ function mount(options: MountOptions = {}): ShellController | null {
           realEmail: status.real?.email || "",
           currentEmail: status.target?.email || "",
         });
+        if (status.real?.email) {
+          store.set({
+            userName: status.real.name || "",
+            userEmail: status.real.email,
+            userRole: status.real.isSuperAdmin ? "Super admin" : "Admin",
+          });
+        }
         applyAdminNavAccess({
           effectiveIsAdmin: status.effective?.role === "admin",
           isRealSuperAdmin: Boolean(status.real?.isSuperAdmin),

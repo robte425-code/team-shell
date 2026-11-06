@@ -53,7 +53,7 @@ export function ImpersonationBanner({
       className={
         plain
           ? "team-impersonation-banner"
-          : "flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-amber-400 px-4 py-2 text-center text-sm text-amber-950"
+          : "flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 border-b border-amber-300 bg-amber-100 px-4 py-2 text-center text-sm text-amber-950"
       }
     >
       <span>
@@ -70,7 +70,7 @@ export function ImpersonationBanner({
         className={
           plain
             ? undefined
-            : "rounded-md bg-amber-950/15 px-3 py-1 font-medium text-amber-950 transition-colors hover:bg-amber-950/25 disabled:opacity-60"
+            : "h-8 rounded-lg border border-amber-400 bg-white px-3 text-[13px] font-semibold text-amber-950 transition-colors hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-60"
         }
       >
         {busy ? "Exiting…" : "Exit view-as"}

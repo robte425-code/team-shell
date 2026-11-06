@@ -40,7 +40,9 @@ export function teamUrls(env: NodeJS.ProcessEnv = process.env) {
   };
 }
 
-/** Access hub + Backup hub — appended when includePlatformHub (super admin). */
+export const PLATFORM_HUB_SECTION_LABEL = "All TEAM apps";
+
+/** Access hub + Backup hub — their own "All TEAM apps" section when includePlatformHub (super admin). */
 export function platformHubAdminItems(
   env?: NodeJS.ProcessEnv,
   onUpdatesApp = false
@@ -51,7 +53,6 @@ export function platformHubAdminItems(
       {
         href: "/manage/access",
         label: "Access hub",
-        separatorBefore: true,
         isActive: (p) => p.startsWith("/manage/access"),
       },
       {
@@ -65,7 +66,6 @@ export function platformHubAdminItems(
     {
       href: `${updatesBase}/manage/access`,
       label: "Access hub",
-      separatorBefore: true,
       external: true,
     },
     {
@@ -76,28 +76,25 @@ export function platformHubAdminItems(
   ];
 }
 
-function appendPlatformHub(
-  section: AdminNavSection,
+/**
+ * An app's Admin menu: its own section (when the person is an admin of the app), then
+ * "All TEAM apps" with the Access and Backup hubs (super admins, not while viewing as someone).
+ */
+function adminMenu(
+  appLabel: string,
+  appItems: AdminNavItem[],
+  options: { includePlatformHub?: boolean; includeAppAdmin?: boolean } | undefined,
   env?: NodeJS.ProcessEnv,
   onUpdatesApp = false
-): AdminNavSection {
-  return {
-    ...section,
-    items: [...section.items, ...platformHubAdminItems(env, onUpdatesApp)],
-  };
-}
-
-function withPlatformHubSections(
-  sections: AdminNavSection[],
-  env?: NodeJS.ProcessEnv,
-  onUpdatesApp = false,
-  includePlatformHub = false
 ): AdminNavSection[] {
-  if (!includePlatformHub || sections.length === 0) return sections;
-  const out = [...sections];
-  const last = out.length - 1;
-  out[last] = appendPlatformHub(out[last]!, env, onUpdatesApp);
-  return out;
+  const sections: AdminNavSection[] = [];
+  if (options?.includeAppAdmin !== false && appItems.length > 0) {
+    sections.push({ label: appLabel, items: appItems });
+  }
+  if (options?.includePlatformHub) {
+    sections.push({ label: PLATFORM_HUB_SECTION_LABEL, items: platformHubAdminItems(env, onUpdatesApp) });
+  }
+  return sections;
 }
 
 /** First nav item — TEAM Updates home. Internal on the Updates app, external elsewhere. */
@@ -219,28 +216,27 @@ export function updatesAdminSections(
   _pathname: string,
   options?: { includePlatformHub?: boolean; includeAppAdmin?: boolean }
 ): AdminNavSection[] {
-  const appItems: AdminNavItem[] = [
-    { href: "/", label: "Home", isActive: (p) => p === "/" },
-    { href: "/manage/updates", label: "Updates", isActive: (p) => p.startsWith("/manage/updates") },
-    { href: "/manage/key-dates", label: "Key dates", isActive: (p) => p.startsWith("/manage/key-dates") },
+  return adminMenu("Updates", updatesAdminItems(), options, undefined, true);
+}
+
+/** Updates' own admin pages (the Admin menu and the side menu of its admin area). */
+export function updatesAdminItems(): AdminNavItem[] {
+  return [
+    {
+      href: "/manage/updates",
+      label: "Updates and reminders",
+      isActive: (p) => p.startsWith("/manage/updates") || p.startsWith("/manage/archived-updates"),
+    },
+    {
+      href: "/manage/key-dates",
+      label: "Key dates",
+      isActive: (p) => p.startsWith("/manage/key-dates") || p.startsWith("/manage/archived-key-dates"),
+    },
+    { href: "/manage/reminders", label: "Inactivity reminders", isActive: (p) => p.startsWith("/manage/reminders") },
     { href: "/manage/ticker", label: "Ticker", isActive: (p) => p.startsWith("/manage/ticker") },
-    { href: "/manage/reminders", label: "Reminders", isActive: (p) => p.startsWith("/manage/reminders") },
-    { href: "/manage/popup", label: "Popup window", isActive: (p) => p.startsWith("/manage/popup") },
+    { href: "/manage/popup", label: "Pop-up message", isActive: (p) => p.startsWith("/manage/popup") },
     { href: "/manage/usage-stats", label: "Usage stats", isActive: (p) => p.startsWith("/manage/usage-stats") },
   ];
-
-  const includeAppAdmin = options?.includeAppAdmin !== false;
-  let section: AdminNavSection = {
-    label: "Admin",
-    items: includeAppAdmin ? appItems : [],
-  };
-
-  if (options?.includePlatformHub) {
-    section = appendPlatformHub(section, undefined, true);
-  }
-
-  if (section.items.length === 0) return [];
-  return [section];
 }
 
 export function requestsAdminSections(
@@ -248,48 +244,28 @@ export function requestsAdminSections(
   env?: NodeJS.ProcessEnv,
   options?: { includePlatformHub?: boolean; includeAppAdmin?: boolean }
 ): AdminNavSection[] {
-  const includeAppAdmin = options?.includeAppAdmin !== false;
-  let section: AdminNavSection = {
-    label: "Admin",
-    items: includeAppAdmin
-      ? [{ href: "/admin", label: "Settings", isActive: (p) => p.startsWith("/admin") }]
-      : [],
-  };
-  if (options?.includePlatformHub) {
-    section = appendPlatformHub(section, env, false);
-  }
-  if (section.items.length === 0) return [];
-  return [section];
+  const items: AdminNavItem[] = [{ href: "/admin", label: "Settings", isActive: (p) => p.startsWith("/admin") }];
+  return adminMenu("Requests", items, options, env);
 }
 
 export function payrollAdminSections(
   env?: NodeJS.ProcessEnv,
   options?: { includePlatformHub?: boolean; includeAppAdmin?: boolean }
 ): AdminNavSection[] {
-  const includeAppAdmin = options?.includeAppAdmin !== false;
-  let section: AdminNavSection = {
-    label: "Admin",
-    items: includeAppAdmin
-      ? [
-          { href: "/my-leave.html", label: "My balances", isActive: (p) => p === "/my-leave.html" },
-          {
-            href: "/index.html",
-            label: "Analyze spreadsheet",
-            isActive: (p) => p === "/" || p === "/index.html",
-          },
-          { href: "/payroll-data.html", label: "Payroll analytics", isActive: (p) => p === "/payroll-data.html" },
-          { href: "/cases.html", label: "Case referrals", isActive: (p) => p === "/cases.html" },
-          { href: "/rates.html", label: "Employee pay rates", isActive: (p) => p === "/rates.html" },
-          { href: "/leave.html", label: "PTO/Sick management", isActive: (p) => p === "/leave.html" },
-          { href: "/pay-stubs.html", label: "Upload paystubs", isActive: (p) => p === "/pay-stubs.html" },
-        ]
-      : [],
-  };
-  if (options?.includePlatformHub) {
-    section = appendPlatformHub(section, env, false);
-  }
-  if (section.items.length === 0) return [];
-  return [section];
+  const items: AdminNavItem[] = [
+    { href: "/my-leave.html", label: "My balances", isActive: (p) => p === "/my-leave.html" },
+    {
+      href: "/index.html",
+      label: "Analyze spreadsheet",
+      isActive: (p) => p === "/" || p === "/index.html",
+    },
+    { href: "/payroll-data.html", label: "Payroll analytics", isActive: (p) => p === "/payroll-data.html" },
+    { href: "/cases.html", label: "Case referrals", isActive: (p) => p === "/cases.html" },
+    { href: "/rates.html", label: "Employee pay rates", isActive: (p) => p === "/rates.html" },
+    { href: "/leave.html", label: "PTO/Sick management", isActive: (p) => p === "/leave.html" },
+    { href: "/pay-stubs.html", label: "Upload paystubs", isActive: (p) => p === "/pay-stubs.html" },
+  ];
+  return adminMenu("Payroll", items, options, env);
 }
 
 export function hrAdminSections(
@@ -297,31 +273,21 @@ export function hrAdminSections(
   env?: NodeJS.ProcessEnv,
   options?: { includePlatformHub?: boolean; includeAppAdmin?: boolean }
 ): AdminNavSection[] {
-  const includeAppAdmin = options?.includeAppAdmin !== false;
-  let section: AdminNavSection = {
-    label: "Admin",
-    items: includeAppAdmin
-      ? [
-          { href: "/admin/employees", label: "Employees", isActive: (p) => p.startsWith("/admin/employees") },
-          {
-            href: "/admin/onboarding",
-            label: "Onboarding templates",
-            isActive: (p) => p.startsWith("/admin/onboarding"),
-          },
-          { href: "/admin/performance", label: "Review cycles", isActive: (p) => p.startsWith("/admin/performance") },
-          {
-            href: "/admin/acknowledgements",
-            label: "Acknowledgements",
-            isActive: (p) => p.startsWith("/admin/acknowledgements"),
-          },
-        ]
-      : [],
-  };
-  if (options?.includePlatformHub) {
-    section = appendPlatformHub(section, env, false);
-  }
-  if (section.items.length === 0) return [];
-  return [section];
+  const items: AdminNavItem[] = [
+    { href: "/admin/employees", label: "Employees", isActive: (p) => p.startsWith("/admin/employees") },
+    {
+      href: "/admin/onboarding",
+      label: "Onboarding templates",
+      isActive: (p) => p.startsWith("/admin/onboarding"),
+    },
+    { href: "/admin/performance", label: "Review cycles", isActive: (p) => p.startsWith("/admin/performance") },
+    {
+      href: "/admin/acknowledgements",
+      label: "Acknowledgements",
+      isActive: (p) => p.startsWith("/admin/acknowledgements"),
+    },
+  ];
+  return adminMenu("HR", items, options, env);
 }
 
 export function vocHotlineAdminSections(
@@ -329,23 +295,13 @@ export function vocHotlineAdminSections(
   env?: NodeJS.ProcessEnv,
   options?: { includePlatformHub?: boolean; includeAppAdmin?: boolean }
 ): AdminNavSection[] {
-  const includeAppAdmin = options?.includeAppAdmin !== false;
-  let section: AdminNavSection = {
-    label: "Admin",
-    items: includeAppAdmin
-      ? [
-          { href: "/", label: "Voc hotline", isActive: (p) => p === "/" || p.startsWith("/chat") },
-          { href: "/admin/usage", label: "Usage log", isActive: (p) => p.startsWith("/admin/usage") },
-          { href: "/admin/notes", label: "Best practices", isActive: (p) => p.startsWith("/admin/notes") },
-          { href: "/admin/terminology", label: "Terminology", isActive: (p) => p.startsWith("/admin/terminology") },
-          { href: "/admin/pages", label: "Page ingestion", isActive: (p) => p.startsWith("/admin/pages") },
-          { href: "/admin/admins", label: "Admin settings", isActive: (p) => p.startsWith("/admin/admins") },
-        ]
-      : [],
-  };
-  if (options?.includePlatformHub) {
-    section = appendPlatformHub(section, env, false);
-  }
-  if (section.items.length === 0) return [];
-  return [section];
+  const items: AdminNavItem[] = [
+    { href: "/", label: "Voc hotline", isActive: (p) => p === "/" || p.startsWith("/chat") },
+    { href: "/admin/usage", label: "Usage log", isActive: (p) => p.startsWith("/admin/usage") },
+    { href: "/admin/notes", label: "Best practices", isActive: (p) => p.startsWith("/admin/notes") },
+    { href: "/admin/terminology", label: "Terminology", isActive: (p) => p.startsWith("/admin/terminology") },
+    { href: "/admin/pages", label: "Page ingestion", isActive: (p) => p.startsWith("/admin/pages") },
+    { href: "/admin/admins", label: "Admin settings", isActive: (p) => p.startsWith("/admin/admins") },
+  ];
+  return adminMenu("Voc hotline", items, options, env);
 }

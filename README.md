@@ -8,7 +8,7 @@ Pin a tagged release:
 
 ```json
 "dependencies": {
-  "@team/shell": "git+https://github.com/robte425-code/team-shell.git#v1.3.0"
+  "@team/shell": "git+https://github.com/robte425-code/team-shell.git#v1.4.0"
 }
 ```
 
@@ -20,6 +20,38 @@ transpilePackages: ["@team/shell"],
 npm records it in the lockfile as `git+ssh://…`, but installs it as an HTTPS tarball, so Vercel and CI need no SSH key.
 
 To roll out a change, tag a new release here and bump the tag in each app.
+
+## The header
+
+`TeamHeader` is the whole header: logo, the cross-app links, the app's Admin menu (the app's own pages, then "All TEAM apps" with the Access and Backup hubs for super admins), and an account menu with who you are, **View as someone else…** and **Sign out**. It stays at the top while you scroll, and below 1024px the links and the Admin menu fold into a menu button.
+
+```tsx
+<TeamHeader
+  homeHref="/"                         // or teamUrls().updates from the other apps
+  LinkComponent={Link}
+  pathname={pathname}
+  links={updatesUserNav(pathname)}     // null while signed out
+  adminSections={updatesAdminSections(pathname, { includeAppAdmin, includePlatformHub })}
+  user={{ name, email, roleLabel: "Super admin" }}
+  viewAs={isRealAdmin && !impersonating ? { realEmail, realName, currentEmail, isImpersonating } : null}
+  onSignOut={() => signOut({ callbackUrl: "/login" })}
+  banner={impersonating ? <ImpersonationBanner name={…} email={…} /> : null}
+>
+  {/* optional: shown inside the header under the bar, e.g. Updates' ticker */}
+</TeamHeader>
+```
+
+Line content up under it with `pageContainer` from `@team/shell/ui` (1200px, the same side padding).
+
+## Building blocks (`@team/shell/ui`)
+
+The shared look as Tailwind classes and small React components, so every app's pages match: a neutral stone palette, near-black main buttons, blue links and focus rings, and green / amber / red / blue status labels. The apps' Tailwind content scan already includes this package's `src/`.
+
+- Classes: `pageContainer`, `buttonClass()`, `input`, `select`, `textarea`, `card`, `table`, `link`, `chipTones`, `cx()`
+- Components: `Button`, `Chip`, `PageHeader`, `Card`, `StatTiles` / `StatTile`, `SearchInput`, `FilterBar`, `Tabs` / `TabLinks`, `Field`, `Switch`, `EmptyState`, `InlineNotice`, `Avatar`, `SignInCard`
+- Overlays: `SidePanel` (create and edit one thing at a time), `Dialog`, `ActionMenu` (the "⋯" row menu), `useConfirm()` (in place of `window.confirm`), and `NoticeProvider` / `useNotice()` for the "Saved" notice
+
+Side panels and dialogs trap focus, close on Escape and return focus to where it was; menus work with the arrow keys.
 
 ## Static HTML pages (browser script)
 
@@ -43,13 +75,14 @@ Install the package as above (no build step: the built file is committed), copy 
 </script>
 ```
 
-`mount()` returns a controller with `applyMyLeaveMeta(data)`, `updateBanner(data)`, `refreshFromImpersonateApi()` and `setGreeting()` (a no-op). The header shows the impersonation banner, the cross-app nav with the Payroll unread badge (`/api/payroll-unread`), **View as…**, and the Admin menu (`payrollAdminSections`, plus the Access/Backup hub for super admins when not viewing as someone).
+`mount()` returns a controller with `applyMyLeaveMeta(data)`, `updateBanner(data)`, `refreshFromImpersonateApi()` and `setGreeting()` (a no-op). It renders `TeamHeader` with `variant="plain"`: the impersonation banner, the cross-app nav with the Payroll unread badge (`/api/payroll-unread`), the Admin menu (`payrollAdminSections`, plus the Access/Backup hub for super admins when not viewing as someone), and the account menu with **View as…** and **Sign out** (`/logout`).
 
 ## Exports
 
 | Import | What it is |
 |---|---|
-| `@team/shell` | `UserNav`, `AdminNavDropdown`, `ViewAsDropdown`, `ImpersonationBanner`, nav config, impersonation types, greeting helpers |
+| `@team/shell` | `TeamHeader`, `ImpersonationBanner`, `UserNav`, `AdminNavDropdown`, `ViewAsDropdown`, `useViewAs`, nav config, impersonation types, greeting helpers |
+| `@team/shell/ui` | The shared look: classes and building blocks (see above) |
 | `@team/shell/nav-config` | Canonical nav order, app URLs (`teamUrls()`), per-app admin sections |
 | `@team/shell/impersonation` | `team_impersonate` cookie name and shared types |
 | `@team/shell/impersonate-client` | Client helpers for `/api/impersonate` |
