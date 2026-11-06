@@ -89,6 +89,16 @@ export const table = {
   row: "transition-colors hover:bg-stone-50/70",
 };
 
+/**
+ * A page's side menu (an app's sections, an admin area). From lg up it sits beside the page
+ * and stays in view while the page scrolls; when it is taller than the window it scrolls on
+ * its own, without moving the page. 100dvh is the visible window (Safari's toolbars excluded);
+ * the 7rem is the header plus a gap. The 4px padding keeps focus rings from being clipped.
+ * Below lg it is an ordinary block (apps lay it out as a scrolling row of links).
+ */
+export const sideNav =
+  "min-w-0 lg:sticky lg:top-24 lg:-m-1 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:p-1";
+
 /** Menus (Admin, account, "⋯"). */
 export const menu = {
   panel:
