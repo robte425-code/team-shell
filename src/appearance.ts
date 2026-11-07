@@ -21,8 +21,8 @@ export type SharedColorSchemeOptions = {
 };
 
 const CACHE_MS = 60 * 1000;
-let cached: { at: number; vars: ColorSchemeVars | null } = { at: 0, vars: null };
-let pending: Promise<void> | null = null;
+/** One cache entry per Updates origin, so callers passing a different `env` never share an answer. */
+const caches = new Map<string, { at: number; vars: ColorSchemeVars | null; pending: Promise<void> | null }>();
 
 /** Only our own variables, and only plain color values, ever reach the page. */
 function pickColorVars(raw: unknown): ColorSchemeVars | null {
@@ -67,17 +67,25 @@ async function fetchColorScheme(env: NodeJS.ProcessEnv, revalidate?: number): Pr
 export async function sharedColorScheme(options: SharedColorSchemeOptions = {}): Promise<ColorSchemeVars | null> {
   const env = options.env ?? process.env;
   if (options.revalidate !== undefined) return fetchColorScheme(env, options.revalidate);
-  if (Date.now() - cached.at >= CACHE_MS) {
-    if (!pending) {
-      pending = fetchColorScheme(env)
+  const key = internalAppOrigin("updates", env) ?? "";
+  let entry = caches.get(key);
+  if (!entry) {
+    entry = { at: 0, vars: null, pending: null };
+    caches.set(key, entry);
+  }
+  if (Date.now() - entry.at >= CACHE_MS) {
+    if (!entry.pending) {
+      const current = entry;
+      current.pending = fetchColorScheme(env)
         .then((vars) => {
-          cached = { at: Date.now(), vars };
+          current.at = Date.now();
+          current.vars = vars;
         })
         .finally(() => {
-          pending = null;
+          current.pending = null;
         });
     }
-    await pending;
+    await entry.pending;
   }
-  return cached.vars;
+  return entry.vars;
 }
