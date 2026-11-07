@@ -89,10 +89,31 @@ Install the package as above (no build step: the built file is committed), copy 
 | `@team/shell/internal-urls` | `internalAppOrigin()`: origins for calls that carry `TEAM_INTERNAL_ACCESS_SECRET` (explicit `NEXT_PUBLIC_*_URL` only, never a default) |
 | `@team/shell/super-admin-server` | Server-side super-admin check against Updates |
 | `@team/shell/payroll-unread-server` | Server-side unread pay-stub check against Payroll |
+| `@team/shell/active-staff` | Server-side `onlyActiveStaff()` / `fetchActiveEmails()`: who HR lists as active, for View as (see below) |
+| `@team/shell/appearance` | Server-side `sharedColorScheme()`: the color scheme chosen in Updates, as CSS variables (see below) |
 | `@team/shell/styles/team-shell.css` | Header styles (plain class names) |
 | `@team/shell/dist/team-shell.js` | Prebuilt browser script for static pages (see above) |
 
 Each app implements `GET/POST/DELETE /api/impersonate` and `GET /api/view-as-users` itself, using the `team_impersonate` HttpOnly cookie. Impersonation is per app (per domain); it doesn't follow you across apps.
+
+## Server helpers for the other apps
+
+Server only (route handlers, layouts, `getInitialProps`): they send `TEAM_INTERNAL_ACCESS_SECRET` to the origin from `internalAppOrigin()`, and return a safe fallback when it isn't configured or the other app can't be reached.
+
+```ts
+// View as: offer only people HR lists as active (HR's GET /api/internal/active-staff).
+// Kept in memory for a minute, one shared refresh; everyone, if HR can't be asked.
+import { onlyActiveStaff } from "@team/shell/active-staff";
+const users = await onlyActiveStaff(allUsers, (u) => u.email);
+
+// The color scheme chosen in Updates (GET /api/internal/appearance), as CSS variables for <body>.
+// Null when Updates can't be asked; the app's globals.css defaults apply then.
+import { sharedColorScheme } from "@team/shell/appearance";
+const scheme = await sharedColorScheme({ revalidate: 60 }); // App Router: Next's data cache
+const scheme = await sharedColorScheme();                   // Pages Router / elsewhere: kept in memory for a minute
+```
+
+Updates serves the appearance endpoint and HR serves the active-staff one, so neither calls its own. TEAM Payroll's server code is CommonJS JavaScript (`require`) and can't load these TypeScript modules, so it keeps its own copy of the active-staff check in `lib/active-staff.js`.
 
 ## Development
 
