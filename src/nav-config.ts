@@ -193,7 +193,7 @@ export function vocHotlineUserNav(pathname: string, env?: NodeJS.ProcessEnv): Us
   ];
 }
 
-/** Payroll's own pages are static HTML; its home is My balances. */
+/** Payroll's own pages are static HTML; its home is My time off. */
 export function payrollUserNav(pathname: string, env?: NodeJS.ProcessEnv): UserNavLink[] {
   const urls = teamUrls(env);
   return [
@@ -254,17 +254,17 @@ export function payrollAdminSections(
   options?: { includePlatformHub?: boolean; includeAppAdmin?: boolean }
 ): AdminNavSection[] {
   const items: AdminNavItem[] = [
-    { href: "/my-leave.html", label: "My balances", isActive: (p) => p === "/my-leave.html" },
+    { href: "/my-leave.html", label: "My time off", isActive: (p) => p === "/my-leave.html" },
     {
       href: "/index.html",
-      label: "Analyze spreadsheet",
+      label: "Analyzer",
       isActive: (p) => p === "/" || p === "/index.html",
     },
-    { href: "/payroll-data.html", label: "Payroll analytics", isActive: (p) => p === "/payroll-data.html" },
+    { href: "/payroll-data.html", label: "Analytics", isActive: (p) => p === "/payroll-data.html" },
     { href: "/cases.html", label: "Case referrals", isActive: (p) => p === "/cases.html" },
-    { href: "/rates.html", label: "Employee pay rates", isActive: (p) => p === "/rates.html" },
-    { href: "/leave.html", label: "PTO/Sick management", isActive: (p) => p === "/leave.html" },
-    { href: "/pay-stubs.html", label: "Upload paystubs", isActive: (p) => p === "/pay-stubs.html" },
+    { href: "/rates.html", label: "Pay rates", isActive: (p) => p === "/rates.html" },
+    { href: "/leave.html", label: "PTO & sick time", isActive: (p) => p === "/leave.html" },
+    { href: "/pay-stubs.html", label: "Pay stubs", isActive: (p) => p === "/pay-stubs.html" },
   ];
   return adminMenu("Payroll", items, options, env);
 }
@@ -278,13 +278,13 @@ export function hrAdminSections(
     { href: "/admin/employees", label: "Employees", isActive: (p) => p.startsWith("/admin/employees") },
     {
       href: "/admin/onboarding",
-      label: "Onboarding templates",
+      label: "Onboarding",
       isActive: (p) => p.startsWith("/admin/onboarding"),
     },
     { href: "/admin/performance", label: "Review cycles", isActive: (p) => p.startsWith("/admin/performance") },
     {
       href: "/admin/acknowledgements",
-      label: "Acknowledgements",
+      label: "Sign-off tracking",
       isActive: (p) => p.startsWith("/admin/acknowledgements"),
     },
   ];
@@ -298,11 +298,11 @@ export function vocHotlineAdminSections(
 ): AdminNavSection[] {
   const items: AdminNavItem[] = [
     { href: "/", label: "Voc hotline", isActive: (p) => p === "/" || p.startsWith("/chat") },
-    { href: "/admin/usage", label: "Usage log", isActive: (p) => p.startsWith("/admin/usage") },
+    { href: "/admin/usage", label: "Questions", isActive: (p) => p.startsWith("/admin/usage") },
     { href: "/admin/notes", label: "Best practices", isActive: (p) => p.startsWith("/admin/notes") },
     { href: "/admin/terminology", label: "Terminology", isActive: (p) => p.startsWith("/admin/terminology") },
-    { href: "/admin/pages", label: "Page ingestion", isActive: (p) => p.startsWith("/admin/pages") },
-    { href: "/admin/admins", label: "Admin settings", isActive: (p) => p.startsWith("/admin/admins") },
+    { href: "/admin/pages", label: "Pages and documents", isActive: (p) => p.startsWith("/admin/pages") },
+    { href: "/admin/admins", label: "Settings", isActive: (p) => p.startsWith("/admin/admins") },
   ];
   return adminMenu("Voc hotline", items, options, env);
 }
