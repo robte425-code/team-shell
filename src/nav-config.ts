@@ -3,9 +3,14 @@ export const DEFAULT_REQUESTS_URL = "https://team-requests.vercel.app";
 export const DEFAULT_VOC_HOTLINE_URL = "https://voc-hotline-nine.vercel.app";
 export const DEFAULT_HR_URL = "https://team-hr.vercel.app";
 export const DEFAULT_PAYROLL_URL = "https://team-payroll.vercel.app/my-leave.html";
+export const DEFAULT_MESSAGES_URL = "https://team-messages.vercel.app";
 
 export const PAYROLL_NAV_KEY = "payroll";
 export const PAYROLL_UNREAD_API_PATH = "/api/payroll-unread";
+
+export const MESSAGES_NAV_KEY = "messages";
+/** Each app answers this with { unread } for the signed-in person (see messages-unread-server). */
+export const MESSAGES_UNREAD_API_PATH = "/api/messages-unread";
 
 export type UserNavLink =
   | {
@@ -37,6 +42,7 @@ export function teamUrls(env: NodeJS.ProcessEnv = process.env) {
     vocHotline: env.NEXT_PUBLIC_VOC_HOTLINE_URL || DEFAULT_VOC_HOTLINE_URL,
     hr: env.NEXT_PUBLIC_HR_URL || DEFAULT_HR_URL,
     payroll: env.NEXT_PUBLIC_PAYROLL_URL || DEFAULT_PAYROLL_URL,
+    messages: env.NEXT_PUBLIC_MESSAGES_URL || DEFAULT_MESSAGES_URL,
   };
 }
 
@@ -118,11 +124,17 @@ export function dashboardNavLink(
   };
 }
 
-/** Canonical user nav order: Dashboard → Requests → Phone book → Voc hotline → Payroll → HR */
+/** The Messages link, external everywhere but the Messages app. */
+function messagesNavLink(env?: NodeJS.ProcessEnv): UserNavLink {
+  return { kind: "external", href: teamUrls(env).messages, label: "Messages", navKey: MESSAGES_NAV_KEY };
+}
+
+/** Canonical user nav order: Dashboard → Messages → Requests → Phone book → Voc hotline → Payroll → HR */
 export function updatesUserNav(pathname: string, env?: NodeJS.ProcessEnv): UserNavLink[] {
   const urls = teamUrls(env);
   return [
     dashboardNavLink(env, true),
+    messagesNavLink(env),
     { kind: "external", href: urls.requests, label: "Requests" },
     {
       kind: "internal",
@@ -140,6 +152,7 @@ export function requestsUserNav(isAgent: boolean, pathname: string, env?: NodeJS
   const urls = teamUrls(env);
   return [
     dashboardNavLink(env, false),
+    messagesNavLink(env),
     {
       kind: "internal",
       href: isAgent ? "/dashboard" : "/my-tickets",
@@ -163,6 +176,7 @@ export function hrUserNav(pathname: string, env?: NodeJS.ProcessEnv): UserNavLin
   const urls = teamUrls(env);
   return [
     dashboardNavLink(env, false),
+    messagesNavLink(env),
     { kind: "external", href: urls.requests, label: "Requests" },
     { kind: "external", href: `${urls.updates.replace(/\/$/, "")}/phone-book`, label: "Phone book" },
     { kind: "external", href: urls.vocHotline, label: "Voc hotline" },
@@ -180,6 +194,7 @@ export function vocHotlineUserNav(pathname: string, env?: NodeJS.ProcessEnv): Us
   const urls = teamUrls(env);
   return [
     dashboardNavLink(env, false),
+    messagesNavLink(env),
     { kind: "external", href: urls.requests, label: "Requests" },
     { kind: "external", href: `${urls.updates}/phone-book`, label: "Phone book" },
     {
@@ -198,6 +213,7 @@ export function payrollUserNav(pathname: string, env?: NodeJS.ProcessEnv): UserN
   const urls = teamUrls(env);
   return [
     dashboardNavLink(env, false),
+    messagesNavLink(env),
     { kind: "external", href: urls.requests, label: "Requests" },
     { kind: "external", href: `${urls.updates.replace(/\/$/, "")}/phone-book`, label: "Phone book" },
     { kind: "external", href: urls.vocHotline, label: "Voc hotline" },
@@ -210,6 +226,38 @@ export function payrollUserNav(pathname: string, env?: NodeJS.ProcessEnv): UserN
     },
     { kind: "external", href: urls.hr, label: "HR" },
   ];
+}
+
+/** The Messages app: its own link is internal. */
+export function messagesUserNav(pathname: string, env?: NodeJS.ProcessEnv): UserNavLink[] {
+  const urls = teamUrls(env);
+  return [
+    dashboardNavLink(env, false),
+    {
+      kind: "internal",
+      href: "/",
+      label: "Messages",
+      isActive: (p) => p === "/" || p.startsWith("/c/"),
+      navKey: MESSAGES_NAV_KEY,
+    },
+    { kind: "external", href: urls.requests, label: "Requests" },
+    { kind: "external", href: `${urls.updates.replace(/\/$/, "")}/phone-book`, label: "Phone book" },
+    { kind: "external", href: urls.vocHotline, label: "Voc hotline" },
+    { kind: "external", href: urls.payroll, label: "Payroll", navKey: PAYROLL_NAV_KEY },
+    { kind: "external", href: urls.hr, label: "HR" },
+  ];
+}
+
+/** Messages' admin page (all messages) is for super admins only. */
+export function messagesAdminSections(
+  pathname: string,
+  env?: NodeJS.ProcessEnv,
+  options?: { includePlatformHub?: boolean; includeAppAdmin?: boolean }
+): AdminNavSection[] {
+  const items: AdminNavItem[] = [
+    { href: "/admin", label: "All messages", isActive: (p) => p.startsWith("/admin") },
+  ];
+  return adminMenu("Messages", items, options, env);
 }
 
 export function updatesAdminSections(
