@@ -31,7 +31,7 @@ const TAILWIND = {
   bar: "flex min-h-[4rem] w-full items-center gap-3 px-4 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:gap-6",
   logo: `flex shrink-0 items-center justify-self-start rounded-md transition-opacity hover:opacity-90 ${FOCUS}`,
   logoImg: "h-10 w-auto sm:h-11",
-  nav: "hidden min-w-0 flex-1 flex-wrap items-center justify-center gap-1 py-2 lg:flex",
+  nav: "hidden min-w-0 flex-wrap items-center justify-center gap-1 py-2 lg:flex",
   spacer: "min-w-0 flex-1 lg:hidden",
   right: "flex shrink-0 items-center gap-2 justify-self-end lg:col-start-3",
   admin: "hidden lg:block",
