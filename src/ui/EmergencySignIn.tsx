@@ -75,7 +75,7 @@ export function EmergencySignIn({
         body: JSON.stringify({ email: work }),
       });
       if (res.status === 400) {
-        // The app's ALLOWED_DOMAIN rule, checked on the server (see emergency-sign-in-shared).
+        // HR's TEAM-domain rule, passed on by the app (see emergency-sign-in-shared).
         const data = (await res.json().catch(() => null)) as { error?: string } | null;
         if (data?.error === EMERGENCY_NOT_TEAM_ADDRESS) {
           setError("That isn’t a TEAM work address. Enter your TEAM email, not your personal one: the code is sent to your personal email.");

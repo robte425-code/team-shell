@@ -153,11 +153,14 @@ const emergency = useEmergencySignIn(); // "loading" | "on" | "off"
 {emergency === "on" ? <EmergencySignIn appName="Payroll" signIn={signIn} callbackUrl={callbackUrl} /> : null}
 ```
 
-Before asking HR, each app's `POST /api/emergency-sign-in` refuses an address outside its own `ALLOWED_DOMAIN` (the same rule its sign-in uses) with 400 `notTeamAddressBody()`, and the form then says to use the TEAM address. People often type their personal one, since that's where the code goes, and HR would quietly send nothing. The answer reflects only the domain rule, never who works here:
+HR decides what a TEAM address is, since it sends the codes: for an address outside HR's `ALLOWED_DOMAIN` it answers the status `not_team_address` instead of quietly sending nothing (people often type their personal address, since that's where the code goes). Each app passes HR's answer on with `emergencyCodeReply()`, which turns it into a 400 the form explains, `off` into a 503, and everything else into `{ ok: true }`. The answer reflects only the domain rule, never who works here:
 
 ```ts
-import { notTeamAddressBody } from "@team/shell/emergency-sign-in-server";
-if (!isAllowedDomain(String(body.email ?? "").trim())) return NextResponse.json(notTeamAddressBody(), { status: 400 });
+import { emergencyCodeReply, requestEmergencyCodeRemote } from "@team/shell/emergency-sign-in-server";
+const status = await requestEmergencyCodeRemote({ email: body.email, app: "requests", ip: clientIpFrom(req.headers) });
+if (status !== "sent") console.warn(`[emergency-sign-in] Requests code not sent: ${status}`);
+const reply = emergencyCodeReply(status);
+return NextResponse.json(reply.body, { status: reply.status });
 ```
 
 HR calls its own code directly rather than these helpers.
