@@ -91,6 +91,7 @@ Install the package as above (no build step: the built file is committed), copy 
 | `@team/shell/payroll-unread-server` | Server-side unread pay-stub check against Payroll |
 | `@team/shell/messages-unread-server` | Server-side unread message count from Messages (see below) |
 | `@team/shell/active-staff` | Server-side `onlyActiveStaff()` / `fetchActiveEmails()`: who HR lists as active, for View as (see below) |
+| `@team/shell/team-sign-in-server` | Server-side one sign-in for all apps: sign-out record with HR, ending sessions signed out elsewhere, Microsoft sign-out URL (see below) |
 | `@team/shell/emergency-sign-in-server` | Server-side emergency sign-in against HR: on/off, send a code, check a code (see below) |
 | `@team/shell/appearance` | Server-side `sharedColorScheme()`: the color scheme chosen in Updates, as CSS variables (see below) |
 | `@team/shell/styles/team-shell.css` | Header styles (plain class names) |
@@ -130,6 +131,22 @@ import { sharedColorScheme } from "@team/shell/appearance";
 const scheme = await sharedColorScheme({ revalidate: 60 }); // App Router: Next's data cache
 const scheme = await sharedColorScheme();                   // Pages Router / elsewhere: kept in memory for a minute
 ```
+
+## One sign-in for all apps
+
+Signing in to any TEAM app signs you in to all of them, and signing out of any signs you out of all of them (and of Microsoft in that browser).
+
+- **Sign-in pages** use `useTeamAutoSignIn` (`@team/shell/ui`): arriving signed out goes straight through Microsoft (silently if already signed in there, else Microsoft's page once per tab). It shows the button instead right after signing out (`?signedOut=1`), after "no access", or while emergency sign-in is on. The button uses `signInWithMicrosoft`.
+- **Sign out** with `teamSignOut(signOut)`. It calls the app's `POST /api/sign-out`, which uses `recordTeamSignOutRemote` (HR keeps when each person last signed out) and answers with `microsoftSignOutUrl(signedOutLandingUrl())`, or just the landing page while emergency sign-in is on.
+- **Every app's jwt callback** calls `teamSessionSignedOut(token, account)` (`@team/shell/team-sign-in-server`) and ends the session when the person has signed out of any app since it started. HR is asked at most every 30 seconds per person; if HR can't be asked, sessions stay.
+- **Azure:** each app's `<site>/login` must be a redirect URI on the app registration, so Microsoft can send people back after signing out. Otherwise Microsoft shows its own "You signed out" page.
+
+```ts
+import { teamSessionSignedOut } from "@team/shell/team-sign-in-server";
+if (await teamSessionSignedOut(token, account)) throw new Error("Signed out of the TEAM apps; sign in again.");
+```
+
+HR uses its own code (`lib/teamSignOut.js`); Payroll has CommonJS copies.
 
 ## Emergency sign-in
 
