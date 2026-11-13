@@ -21,6 +21,41 @@ type SignOutFn = (options?: { redirect?: boolean; callbackUrl?: string }) => Pro
 
 export const SIGNED_OUT_PARAM = "signedOut";
 const TRIED_KEY = "team_sso_interactive";
+// Automatic sign-ins in this tab (times, ms). If the app keeps sending people back here right
+// after Microsoft signs them in, stop after a few tries instead of looping (Microsoft blocks a
+// loop with AADSTS50196, for every TEAM app, since they share one app registration).
+const ATTEMPTS_KEY = "team_sso_attempts";
+const MAX_AUTO_ATTEMPTS = 3;
+const ATTEMPT_WINDOW_MS = 2 * 60 * 1000;
+
+function readAttempts(now: number): number[] {
+  try {
+    const list = JSON.parse(sessionStorage.getItem(ATTEMPTS_KEY) || "[]");
+    return Array.isArray(list) ? list.filter((t) => typeof t === "number" && now - t < ATTEMPT_WINDOW_MS) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Notes an automatic sign-in; false when there have been too many lately (show the button). */
+function mayAutoSignIn(now = Date.now()): boolean {
+  const recent = readAttempts(now);
+  if (recent.length >= MAX_AUTO_ATTEMPTS) return false;
+  try {
+    sessionStorage.setItem(ATTEMPTS_KEY, JSON.stringify([...recent, now]));
+  } catch {
+    /* private mode */
+  }
+  return true;
+}
+
+function clearAttempts() {
+  try {
+    sessionStorage.removeItem(ATTEMPTS_KEY);
+  } catch {
+    /* private mode */
+  }
+}
 
 export type TeamSignInPhase = "checking" | "redirecting" | "manual";
 
@@ -51,7 +86,14 @@ export function useTeamAutoSignIn({
     if (!ready || emergency === "loading" || started.current) return;
     started.current = true;
     if (!enabled || emergency === "on" || signedOut || error === "AccessDenied") {
-      if (signedOut) sessionStorage.removeItem(TRIED_KEY);
+      if (signedOut) {
+        sessionStorage.removeItem(TRIED_KEY);
+        clearAttempts();
+      }
+      setPhase("manual");
+      return;
+    }
+    if (!mayAutoSignIn()) {
       setPhase("manual");
       return;
     }
@@ -80,6 +122,7 @@ export function useTeamAutoSignIn({
 export function signInWithMicrosoft(signIn: SignInFn, callbackUrl = "/") {
   try {
     sessionStorage.setItem(TRIED_KEY, "1");
+    clearAttempts();
   } catch {
     /* private mode */
   }
