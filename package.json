@@ -1,6 +1,6 @@
 {
   "name": "@team/shell",
-  "version": "1.10.4",
+  "version": "1.10.5",
   "private": true,
   "description": "Shared TEAM header, navigation, and view-as UI for the TEAM internal apps",
   "repository": "github:robte425-code/team-shell",
@@ -34,7 +34,8 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "build:script": "node scripts/build-script.mjs",
-    "check:dist": "node scripts/build-script.mjs --check"
+    "check:dist": "node scripts/build-script.mjs --check",
+    "test": "node scripts/test.mjs"
   },
   "peerDependencies": {
     "react": ">=18",

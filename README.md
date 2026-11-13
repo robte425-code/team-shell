@@ -19,7 +19,7 @@ transpilePackages: ["@team/shell"],
 
 npm records it in the lockfile as `git+ssh://…`, but installs it as an HTTPS tarball, so Vercel and CI need no SSH key.
 
-To roll out a change, tag a new release here and bump the tag in each app.
+`npm test` runs the tests in `scripts/tests` (one sign-in and the automatic sign-in limit). To roll out a change, tag a new release here and bump the tag in each app.
 
 ## The header
 
@@ -136,7 +136,7 @@ const scheme = await sharedColorScheme();                   // Pages Router / el
 
 Signing in to any TEAM app signs you in to all of them, and signing out of any signs you out of all of them (and of Microsoft in that browser).
 
-- **Sign-in pages** use `useTeamAutoSignIn` (`@team/shell/ui`): arriving signed out goes straight through Microsoft (silently if already signed in there, else Microsoft's page once per tab). It shows the button instead right after signing out (`?signedOut=1`), after "no access", or while emergency sign-in is on. After 3 automatic tries in 2 minutes in a tab it stops and shows the button, so an app that keeps sending people back can't loop (Microsoft blocks a loop with AADSTS50196 for every TEAM app, since they share one app registration). The button uses `signInWithMicrosoft`.
+- **Sign-in pages** use `useTeamAutoSignIn` (`@team/shell/ui`): arriving signed out goes straight through Microsoft (silently if already signed in there, else Microsoft's page once per tab). It shows the button instead right after signing out (`?signedOut=1`), after "no access", or while emergency sign-in is on. After 3 automatic tries in 2 minutes in a tab it stops and shows the button, so an app that keeps sending people back can't loop (Microsoft blocks a loop with AADSTS50196 for every TEAM app, since they share one app registration). `useTeamAutoSignInState` also says when it `stopped`, so the page can show `AUTO_SIGN_IN_STOPPED_TEXT` by the button. The button uses `signInWithMicrosoft`.
 - **Sign out** with `teamSignOut(signOut)`. It calls the app's `POST /api/sign-out`, which uses `recordTeamSignOutRemote` (HR keeps when each person last signed out) and answers with `microsoftSignOutUrl(signedOutLandingUrl())`, or just the landing page while emergency sign-in is on.
 - **Every app's jwt callback** calls `teamSessionSignedOut(token, account)` (`@team/shell/team-sign-in-server`) and ends the session when the person has signed out of any app since it started. HR is asked at most every 30 seconds per person; if HR can't be asked, sessions stay. The sign-in time is kept on the token as `teamSignedInAt` (ms), its own name so it can't clash with an app's own fields (Voc hotline keeps `signedInAt` in seconds for its 7-day limit).
 - **Azure:** each app's `<site>/login` must be a redirect URI on the app registration, so Microsoft can send people back after signing out. Otherwise Microsoft shows its own "You signed out" page.
