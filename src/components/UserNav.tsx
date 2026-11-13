@@ -55,10 +55,9 @@ function usePayrollUnread(refreshKey?: string) {
   return { hasUnread, title };
 }
 
+/** Like the Payroll pay-stub dot, in red: there are unread messages (the count is in the tooltip). */
 const unreadMessagesClass =
-  "bg-blue-50 text-blue-900 ring-1 ring-inset ring-blue-300";
-const messagesCountClass =
-  "ml-1.5 inline-grid min-w-[1.25rem] place-items-center rounded-full bg-blue-700 px-1.5 text-[11px] font-bold leading-5 text-white";
+  "bg-red-50 text-red-900 ring-1 ring-inset ring-red-300 after:ml-1.5 after:inline-block after:h-2 after:w-2 after:rounded-full after:bg-red-600 after:align-middle";
 
 /** Window event the Messages app fires with its own count ({ detail: number }), so its badge moves at once. */
 export const MESSAGES_UNREAD_EVENT = "team:messages-unread";
@@ -104,10 +103,6 @@ function useMessagesUnread(enabled: boolean, refreshKey?: string) {
   }, [enabled, refreshKey]);
 
   return unread;
-}
-
-function messagesCountLabel(n: number): string {
-  return n > 99 ? "99+" : String(n);
 }
 
 export function UserNav({
@@ -168,9 +163,6 @@ export function UserNav({
           messageCount > 0 ? (
             <>
               {item.label}
-              <span className={plain ? "team-header-count" : messagesCountClass} aria-hidden="true">
-                {messagesCountLabel(messageCount)}
-              </span>
               <span className="sr-only">{`, ${messageCount} unread`}</span>
             </>
           ) : (

@@ -100,7 +100,7 @@ Each app implements `GET/POST/DELETE /api/impersonate` and `GET /api/view-as-use
 
 ## The Messages badge
 
-Every app's menu has a **Messages** link (after Dashboard). `UserNav` shows the person's unread count on it: it asks the app's own `GET /api/messages-unread` on load, every minute while the page is visible, and when the tab comes back into view. Each app answers from the server with `fetchMessagesUnreadForEmail()`, which asks Messages' `GET /api/internal/unread` with `TEAM_INTERNAL_ACCESS_SECRET` (and needs `NEXT_PUBLIC_MESSAGES_URL`):
+Every app's menu has a **Messages** link (last). `UserNav` puts a red dot on it, like the Payroll pay-stub dot, when the person has unread messages (the count is in its tooltip): it asks the app's own `GET /api/messages-unread` on load, every minute while the page is visible, and when the tab comes back into view. Each app answers from the server with `fetchMessagesUnreadForEmail()`, which asks Messages' `GET /api/internal/unread` with `TEAM_INTERNAL_ACCESS_SECRET` (and needs `NEXT_PUBLIC_MESSAGES_URL`):
 
 ```ts
 // app/api/messages-unread/route.ts → { unread: number }
