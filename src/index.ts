@@ -12,6 +12,7 @@ export {
   type ViewAsOptions,
 } from "./components/ViewAsDropdown";
 export { TeamHeader, type TeamHeaderUser } from "./components/TeamHeader";
-export { UserNav } from "./components/UserNav";
+export { MESSAGES_UNREAD_EVENT, UserNav } from "./components/UserNav";
 export { fetchPayrollUnreadForEmail, type PayrollUnreadStatus } from "./payroll-unread-server";
 export { isSuperAdminEmailRemote } from "./super-admin-server";
+export { fetchMessagesUnreadForEmail, type MessagesUnreadStatus } from "./messages-unread-server";

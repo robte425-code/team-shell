@@ -1,6 +1,6 @@
 # @team/shell
 
-The shared TEAM header: cross-app navigation, admin menus, the **View as…** (impersonation) UI, and the server helpers that talk to the other TEAM apps. Used by Updates, Requests, HR, Voc hotline and Payroll, so a menu change is made once here instead of in every app.
+The shared TEAM header: cross-app navigation, admin menus, the **View as…** (impersonation) UI, and the server helpers that talk to the other TEAM apps. Used by Updates, Messages, Requests, HR, Voc hotline and Payroll, so a menu change is made once here instead of in every app.
 
 ## Installing in a Next.js app
 
@@ -89,6 +89,7 @@ Install the package as above (no build step: the built file is committed), copy 
 | `@team/shell/internal-urls` | `internalAppOrigin()`: origins for calls that carry `TEAM_INTERNAL_ACCESS_SECRET` (explicit `NEXT_PUBLIC_*_URL` only, never a default) |
 | `@team/shell/super-admin-server` | Server-side super-admin check against Updates |
 | `@team/shell/payroll-unread-server` | Server-side unread pay-stub check against Payroll |
+| `@team/shell/messages-unread-server` | Server-side unread message count from Messages (see below) |
 | `@team/shell/active-staff` | Server-side `onlyActiveStaff()` / `fetchActiveEmails()`: who HR lists as active, for View as (see below) |
 | `@team/shell/emergency-sign-in-server` | Server-side emergency sign-in against HR: on/off, send a code, check a code (see below) |
 | `@team/shell/appearance` | Server-side `sharedColorScheme()`: the color scheme chosen in Updates, as CSS variables (see below) |
@@ -96,6 +97,22 @@ Install the package as above (no build step: the built file is committed), copy 
 | `@team/shell/dist/team-shell.js` | Prebuilt browser script for static pages (see above) |
 
 Each app implements `GET/POST/DELETE /api/impersonate` and `GET /api/view-as-users` itself, using the `team_impersonate` HttpOnly cookie. Impersonation is per app (per domain); it doesn't follow you across apps.
+
+## The Messages badge
+
+Every app's menu has a **Messages** link (after Dashboard). `UserNav` shows the person's unread count on it: it asks the app's own `GET /api/messages-unread` on load, every minute while the page is visible, and when the tab comes back into view. Each app answers from the server with `fetchMessagesUnreadForEmail()`, which asks Messages' `GET /api/internal/unread` with `TEAM_INTERNAL_ACCESS_SECRET` (and needs `NEXT_PUBLIC_MESSAGES_URL`):
+
+```ts
+// app/api/messages-unread/route.ts → { unread: number }
+import { fetchMessagesUnreadForEmail } from "@team/shell/messages-unread-server";
+export async function GET() {
+  const user = await getCurrentUser();
+  if (!user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  return NextResponse.json(await fetchMessagesUnreadForEmail(user.email));
+}
+```
+
+An app without the route shows no count. The Messages app itself fires `MESSAGES_UNREAD_EVENT` on `window` with its count so the badge changes as soon as messages are read.
 
 ## Server helpers for the other apps
 

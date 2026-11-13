@@ -1,4 +1,4 @@
-export type TeamAppId = "updates" | "requests" | "vocHotline" | "hr" | "payroll";
+export type TeamAppId = "updates" | "requests" | "vocHotline" | "hr" | "payroll" | "messages";
 
 const URL_ENV: Record<TeamAppId, string> = {
   updates: "NEXT_PUBLIC_UPDATES_URL",
@@ -6,6 +6,7 @@ const URL_ENV: Record<TeamAppId, string> = {
   vocHotline: "NEXT_PUBLIC_VOC_HOTLINE_URL",
   hr: "NEXT_PUBLIC_HR_URL",
   payroll: "NEXT_PUBLIC_PAYROLL_URL",
+  messages: "NEXT_PUBLIC_MESSAGES_URL",
 };
 
 const warned = new Set<TeamAppId>();
