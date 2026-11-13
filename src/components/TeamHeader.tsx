@@ -25,6 +25,10 @@ const MENU_PANEL =
 const MENU_ITEM =
   "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-stone-800 transition-colors hover:bg-stone-100 hover:text-stone-900 focus:bg-stone-100 focus:outline-none disabled:opacity-60";
 
+// useLayoutEffect in the browser (measure before paint), useEffect on the server, where
+// React 18 warns about layout effects.
+const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
 const TAILWIND = {
   header: "z-40 border-b border-stone-200 bg-white",
   sticky: "sticky top-0",
@@ -443,7 +447,7 @@ export function TeamHeader({
   const [compact, setCompact] = useState(false);
   const neededRef = useRef(0);
   const linkCount = links?.length ?? 0;
-  useLayoutEffect(() => {
+  useClientLayoutEffect(() => {
     const bar = barRef.current;
     if (!bar || linkCount === 0 || typeof ResizeObserver === "undefined") return;
     const check = () => {
@@ -454,12 +458,20 @@ export function TeamHeader({
         setCompact(true);
       } else if (compact && bar.clientWidth >= neededRef.current) {
         setCompact(false);
+        // The open menu would otherwise pop back up the next time the window is narrowed.
+        setMobileOpen(false);
       }
     };
     const observer = new ResizeObserver(check);
     observer.observe(bar);
-    // A link changing width (the red dot, the pay-stub badge) can tip it over too.
-    navRef.current?.querySelectorAll("a").forEach((a) => observer.observe(a));
+    // The nav narrows when the menus beside it grow (an Admin menu that appears once the
+    // admin check answers, a longer name), and a link can widen (the red dot, the pay-stub
+    // badge): either can tip it over without the bar changing size.
+    const nav = navRef.current;
+    if (nav) {
+      observer.observe(nav);
+      nav.querySelectorAll("a").forEach((a) => observer.observe(a));
+    }
     check();
     return () => observer.disconnect();
   }, [linkCount, compact]);
