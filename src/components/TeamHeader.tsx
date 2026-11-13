@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ElementType, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ElementType, type KeyboardEvent, type ReactNode } from "react";
 import type { AdminNavSection, UserNavLink } from "../nav-config";
 import { moveMenuFocus, useDismiss } from "../ui/ActionMenu";
 import { initialsFor } from "../ui/basics";
@@ -41,6 +41,14 @@ const TAILWIND = {
   mobileHeading: "px-3 pb-1 pt-4 text-[11.5px] font-bold uppercase tracking-[0.06em] text-stone-500",
   mobileItem: `flex items-center rounded-lg px-3 py-2.5 text-[15px] font-medium text-stone-700 transition-colors hover:bg-stone-100 hover:text-stone-900 ${FOCUS}`,
   mobileItemCurrent: "bg-stone-100 font-semibold text-stone-900",
+  // When the links don't fit beside the Admin and account menus (wide enough for the full
+  // header, but not for these links): the phone layout, with the menu button, at any width.
+  compact: "",
+  navCompact: "hidden",
+  spacerCompact: "min-w-0 flex-1",
+  adminCompact: "hidden",
+  menuButtonCompact: `grid h-11 w-11 place-items-center rounded-[10px] border border-stone-300 bg-white text-stone-900 transition-colors hover:bg-stone-50 ${FOCUS}`,
+  mobileCompact: "max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-stone-200 bg-white",
   // Account menu
   account: "relative",
   accountTrigger: `flex h-11 items-center gap-2 rounded-full p-1.5 text-sm font-semibold text-stone-900 transition-colors hover:bg-stone-100 aria-expanded:bg-stone-100 lg:h-10 lg:bg-stone-100 lg:py-1 lg:pl-1 lg:pr-3 lg:hover:bg-stone-200 lg:aria-expanded:bg-stone-200 ${FOCUS}`,
@@ -87,6 +95,12 @@ const PLAIN: typeof TAILWIND = {
   mobileHeading: "team-header-mobile-heading",
   mobileItem: "team-header-mobile-item",
   mobileItemCurrent: "is-current",
+  compact: "is-compact",
+  navCompact: "team-header-nav",
+  spacerCompact: "team-header-spacer",
+  adminCompact: "team-header-admin",
+  menuButtonCompact: "team-header-menu-button",
+  mobileCompact: "team-header-mobile",
   account: "team-account",
   accountTrigger: "team-account-trigger",
   accountTriggerName: "team-account-trigger-name",
@@ -420,17 +434,47 @@ export function TeamHeader({
 
   const closeMobile = () => setMobileOpen(false);
 
+  // Whether the links fit beside the Admin and account menus. They're laid out on one line
+  // from 1024px, but how much room they need depends on the app (an Admin menu, the person's
+  // name, a red dot), so measure: when they'd run under the menus, switch to the menu button
+  // until the bar is wide enough again (with a little slack, so it doesn't flicker).
+  const barRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const [compact, setCompact] = useState(false);
+  const neededRef = useRef(0);
+  const linkCount = links?.length ?? 0;
+  useLayoutEffect(() => {
+    const bar = barRef.current;
+    if (!bar || linkCount === 0 || typeof ResizeObserver === "undefined") return;
+    const check = () => {
+      const nav = navRef.current;
+      const navShown = Boolean(nav && nav.offsetParent !== null);
+      if (navShown && nav && nav.scrollWidth > nav.clientWidth + 1) {
+        neededRef.current = bar.clientWidth + (nav.scrollWidth - nav.clientWidth) + 16;
+        setCompact(true);
+      } else if (compact && bar.clientWidth >= neededRef.current) {
+        setCompact(false);
+      }
+    };
+    const observer = new ResizeObserver(check);
+    observer.observe(bar);
+    // A link changing width (the red dot, the pay-stub badge) can tip it over too.
+    navRef.current?.querySelectorAll("a").forEach((a) => observer.observe(a));
+    check();
+    return () => observer.disconnect();
+  }, [linkCount, compact]);
+
   return (
     <>
       {banner}
-      <header className={cx(c.header, sticky && c.sticky)}>
-        <div className={c.bar}>
+      <header className={cx(c.header, sticky && c.sticky, compact && c.compact)}>
+        <div ref={barRef} className={c.bar}>
           <HomeLink href={homeHref} className={c.logo}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={logoSrc} alt={logoAlt} width={460} height={190} className={c.logoImg || undefined} />
           </HomeLink>
           {links?.length ? (
-            <nav aria-label="TEAM apps" className={c.nav}>
+            <nav ref={navRef} aria-label="TEAM apps" className={compact ? c.navCompact : c.nav}>
               <UserNav
                 variant={variant}
                 links={links}
@@ -440,10 +484,10 @@ export function TeamHeader({
               />
             </nav>
           ) : null}
-          <div className={c.spacer} />
+          <div className={compact ? c.spacerCompact : c.spacer} />
           <div className={c.right}>
             {hasAdmin ? (
-              <div className={c.admin}>
+              <div className={compact ? c.adminCompact : c.admin}>
                 <AdminNavDropdown
                   variant={variant}
                   sections={adminSections}
@@ -459,7 +503,7 @@ export function TeamHeader({
             {hasMobileMenu ? (
               <button
                 type="button"
-                className={c.menuButton}
+                className={compact ? c.menuButtonCompact : c.menuButton}
                 aria-expanded={mobileOpen}
                 aria-controls={mobileId}
                 aria-label={mobileOpen ? "Close menu" : "Open menu"}
@@ -471,7 +515,7 @@ export function TeamHeader({
           </div>
         </div>
         {hasMobileMenu && mobileOpen ? (
-          <div id={mobileId} className={c.mobile}>
+          <div id={mobileId} className={compact ? c.mobileCompact : c.mobile}>
             <nav aria-label="Menu" className={c.mobileInner}>
               {links?.length ? (
                 <UserNav

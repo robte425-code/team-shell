@@ -205,6 +205,23 @@
   border: 0;
 }
 
+/* Compact: the links didn't fit beside the menus (TeamHeader measures), so the phone layout. */
+@media (min-width: 1024px) {
+  .team-header.is-compact .team-header-nav,
+  .team-header.is-compact .team-header-admin {
+    display: none;
+  }
+  .team-header.is-compact .team-header-spacer {
+    display: block;
+  }
+  .team-header.is-compact .team-header-menu-button {
+    display: grid;
+  }
+  .team-header.is-compact .team-header-mobile {
+    display: block;
+  }
+}
+
 /* Phone menu. */
 .team-header-menu-button {
   display: grid;
