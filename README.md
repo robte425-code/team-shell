@@ -41,7 +41,7 @@ To roll out a change, tag a new release here and bump the tag in each app.
 </TeamHeader>
 ```
 
-Line content up under it with `pageContainer` from `@team/shell/ui` (1200px, the same side padding).
+The header spans the full window width. From 1024px its links always show, wrapping onto a second line if they don't fit on one; only below 1024px do they fold into the menu button. Pages use `pageContainer` from `@team/shell/ui` (up to 1200px, centred, the same side padding).
 
 ## Building blocks (`@team/shell/ui`)
 
