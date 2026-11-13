@@ -56,6 +56,30 @@ export async function recordTeamSignOutRemote(email: unknown, env: NodeJS.Proces
   return r?.ok === true;
 }
 
+/** In ms; earlier versions used `signedInAt`, which apps may also use for their own (seconds). */
+const STAMP = "teamSignedInAt";
+const LEGACY_STAMP = "signedInAt";
+const MS_SINCE_2001 = 1e12; // below this a number is seconds, not milliseconds
+
+/**
+ * When this session signed in (ms), stamped at sign-in under its own name: Voc hotline keeps
+ * `signedInAt` in seconds for its 7-day limit, and sharing that name made every fresh sign-in
+ * look older than the last sign-out (a sign-in loop). A session from before this existed counts
+ * as started long ago, so the next sign-out ends it (stamping "now" here could be lost where the
+ * cookie can't be saved, and re-stamped on every request, so it would never end).
+ */
+export function teamSignedInAt(token: Record<string, unknown>, account: unknown, now = Date.now()): number {
+  if (account) token[STAMP] = now;
+  if (typeof token[STAMP] === "number") return token[STAMP] as number;
+  // Stamped by v1.10.0-v1.10.3 (ms): keep it, so those sessions aren't signed out by the upgrade.
+  const legacy = token[LEGACY_STAMP];
+  if (typeof legacy === "number" && legacy > MS_SINCE_2001) {
+    token[STAMP] = legacy;
+    return legacy;
+  }
+  return 0;
+}
+
 /**
  * For the NextAuth jwt callback (pass its token and account). Stamps when the session signed
  * in, and says whether the person has signed out of any TEAM app since, so this session should
@@ -66,11 +90,7 @@ export async function teamSessionSignedOut(
   account: unknown,
   env: NodeJS.ProcessEnv = process.env
 ): Promise<boolean> {
-  // Stamped when signing in. A session from before this existed counts as started long ago, so
-  // the next sign-out ends it (stamping "now" here could be lost where the cookie can't be saved,
-  // and re-stamped on every request, so it would never end).
-  if (account) token.signedInAt = Date.now();
-  const since = typeof token.signedInAt === "number" ? token.signedInAt : 0;
+  const since = teamSignedInAt(token, account);
   const e = normalize(token.email);
   if (!e.includes("@")) return false;
   let entry = cache.get(e);
