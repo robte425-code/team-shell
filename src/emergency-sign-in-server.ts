@@ -4,7 +4,8 @@ import { INTERNAL_FETCH_TIMEOUT_MS, internalAppOrigin, type TeamAppId } from "./
  * Server only. Emergency sign-in, for when Microsoft sign-in is down: HR sends a
  * one-time code to the person's personal email and checks it. Every app asks HR's
  * /api/internal/emergency-sign-in with TEAM_INTERNAL_ACCESS_SECRET; HR keeps the
- * codes and the on/off switch (EMERGENCY_SIGN_IN=on on HR).
+ * codes and the on/off switch (HR admins turn it on from HR's Employees page for a set
+ * time; no redeploy).
  *
  * A verified code only says who the person is. The app's own sign-in rules
  * (its NextAuth signIn callback) still decide whether they get in.
