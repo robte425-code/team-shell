@@ -1,5 +1,7 @@
 import { INTERNAL_FETCH_TIMEOUT_MS, internalAppOrigin, type TeamAppId } from "./internal-urls";
 
+export { EMERGENCY_NOT_TEAM_ADDRESS, notTeamAddressBody } from "./emergency-sign-in-shared";
+
 /**
  * Server only. Emergency sign-in, for when Microsoft sign-in is down: HR sends a
  * one-time code to the person's personal email and checks it. Every app asks HR's

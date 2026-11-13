@@ -153,7 +153,12 @@ const emergency = useEmergencySignIn(); // "loading" | "on" | "off"
 {emergency === "on" ? <EmergencySignIn appName="Payroll" signIn={signIn} callbackUrl={callbackUrl} /> : null}
 ```
 
-The form only accepts a TEAM work address (`TEAM_WORK_EMAIL_DOMAINS`, `@team-voc.com`; pass `workDomains` to change it). People often type their personal address, since that's where the code goes, and HR would quietly send nothing; `workEmailProblem()` gives the message.
+Before asking HR, each app's `POST /api/emergency-sign-in` refuses an address outside its own `ALLOWED_DOMAIN` (the same rule its sign-in uses) with 400 `notTeamAddressBody()`, and the form then says to use the TEAM address. People often type their personal one, since that's where the code goes, and HR would quietly send nothing. The answer reflects only the domain rule, never who works here:
+
+```ts
+import { notTeamAddressBody } from "@team/shell/emergency-sign-in-server";
+if (!isAllowedDomain(String(body.email ?? "").trim())) return NextResponse.json(notTeamAddressBody(), { status: 400 });
+```
 
 HR calls its own code directly rather than these helpers.
 
