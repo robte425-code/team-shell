@@ -153,6 +153,8 @@ const emergency = useEmergencySignIn(); // "loading" | "on" | "off"
 {emergency === "on" ? <EmergencySignIn appName="Payroll" signIn={signIn} callbackUrl={callbackUrl} /> : null}
 ```
 
+The form only accepts a TEAM work address (`TEAM_WORK_EMAIL_DOMAINS`, `@team-voc.com`; pass `workDomains` to change it). People often type their personal address, since that's where the code goes, and HR would quietly send nothing; `workEmailProblem()` gives the message.
+
 HR calls its own code directly rather than these helpers.
 
 Updates serves the appearance endpoint and HR serves the active-staff one, so neither calls its own. TEAM Payroll's server code is CommonJS JavaScript (`require`) and can't load these TypeScript modules, so it keeps its own copy of the active-staff check in `lib/active-staff.js`.

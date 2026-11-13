@@ -36,6 +36,24 @@ export function useEmergencySignIn(url = "/api/emergency-sign-in"): EmergencySig
   return state;
 }
 
+/** TEAM sign-in addresses. The code form only takes these (the code goes to the personal email HR has). */
+export const TEAM_WORK_EMAIL_DOMAINS: readonly string[] = ["team-voc.com"];
+
+/**
+ * Null when `email` is a TEAM work address, otherwise what to tell the person. People
+ * reasonably type their personal address here, since that's where the code goes; HR
+ * would quietly send nothing, so say so before asking.
+ */
+export function workEmailProblem(email: string, domains: readonly string[] = TEAM_WORK_EMAIL_DOMAINS): string | null {
+  const work = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(work)) return "Enter your TEAM work email.";
+  const domain = work.slice(work.lastIndexOf("@") + 1);
+  if (domains.length > 0 && !domains.includes(domain)) {
+    return `Enter your TEAM work email (ending in @${domains[0]}), not your personal one. The code is sent to your personal email.`;
+  }
+  return null;
+}
+
 type SignInResult = { ok?: boolean; error?: string | null; url?: string | null } | undefined;
 type SignInFn = (provider: string, options: Record<string, unknown>) => Promise<SignInResult>;
 
@@ -44,6 +62,7 @@ export function EmergencySignIn({
   signIn,
   callbackUrl = "/",
   url = "/api/emergency-sign-in",
+  workDomains = TEAM_WORK_EMAIL_DOMAINS,
 }: {
   /** "HR", "Payroll"…, for the messages. */
   appName: string;
@@ -51,6 +70,8 @@ export function EmergencySignIn({
   signIn: SignInFn;
   callbackUrl?: string;
   url?: string;
+  /** Email domains the form accepts (default TEAM_WORK_EMAIL_DOMAINS). */
+  workDomains?: readonly string[];
 }) {
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
@@ -62,8 +83,9 @@ export function EmergencySignIn({
     e?.preventDefault();
     setError(null);
     const work = email.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(work)) {
-      setError("Enter your TEAM work email.");
+    const problem = workEmailProblem(work, workDomains);
+    if (problem) {
+      setError(problem);
       return;
     }
     setBusy(true);
@@ -139,11 +161,15 @@ export function EmergencySignIn({
               autoComplete="username"
               inputMode="email"
               className={input}
-              placeholder="you@team-voc.com"
+              placeholder={`you@${workDomains[0] ?? "team-voc.com"}`}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               aria-invalid={error ? true : undefined}
+              aria-describedby="emergency-email-hint"
             />
+            <p id="emergency-email-hint" className="mt-1 text-[12.5px] text-stone-500">
+              Your TEAM address. The code goes to your personal email.
+            </p>
           </div>
           {error ? (
             <p role="alert" className="text-[13px] text-red-800">
