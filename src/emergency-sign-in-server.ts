@@ -1,6 +1,6 @@
 import { INTERNAL_FETCH_TIMEOUT_MS, internalAppOrigin, type TeamAppId } from "./internal-urls";
 
-export { EMERGENCY_NOT_TEAM_ADDRESS, notTeamAddressBody } from "./emergency-sign-in-shared";
+export { EMERGENCY_NOT_TEAM_ADDRESS, emergencyCodeReply, notTeamAddressBody } from "./emergency-sign-in-shared";
 
 /**
  * Server only. Emergency sign-in, for when Microsoft sign-in is down: HR sends a
@@ -17,6 +17,8 @@ export type EmergencySendStatus =
   | "sent"
   | "off"
   | "invalid"
+  /** The address is outside HR's TEAM domains (ALLOWED_DOMAIN): emergencyCodeReply makes it a 400. */
+  | "not_team_address"
   | "limited"
   | "unknown"
   | "no_email"
