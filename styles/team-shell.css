@@ -53,9 +53,23 @@
   }
 }
 
+/* From 1024px: logo | links, centred in the window | menus. The side columns share the
+   room left over, so the links stay centred unless one side needs more. */
 @media (min-width: 1024px) {
   .team-header-bar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     gap: 24px;
+  }
+  .team-header-logo {
+    justify-self: start;
+  }
+  .team-header-nav {
+    justify-content: center;
+  }
+  .team-header-right {
+    grid-column: 3;
+    justify-self: end;
   }
 }
 
@@ -86,7 +100,6 @@
 /* Cross-app links (UserNav variant="plain"). */
 .team-header-nav {
   display: none;
-  flex: 1 1 auto;
   flex-wrap: wrap;
   min-width: 0;
   align-items: center;
