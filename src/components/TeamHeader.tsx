@@ -28,12 +28,12 @@ const MENU_ITEM =
 const TAILWIND = {
   header: "z-40 border-b border-stone-200 bg-white",
   sticky: "sticky top-0",
-  bar: "flex min-h-[4rem] w-full items-center gap-3 px-4 sm:px-6 lg:gap-6",
-  logo: `flex shrink-0 items-center rounded-md transition-opacity hover:opacity-90 ${FOCUS}`,
+  bar: "flex min-h-[4rem] w-full items-center gap-3 px-4 sm:px-6 lg:grid lg:grid-cols-[1fr_auto_1fr] lg:gap-6",
+  logo: `flex shrink-0 items-center justify-self-start rounded-md transition-opacity hover:opacity-90 ${FOCUS}`,
   logoImg: "h-10 w-auto sm:h-11",
-  nav: "hidden min-w-0 flex-1 flex-wrap items-center gap-1 py-2 lg:flex",
+  nav: "hidden min-w-0 flex-1 flex-wrap items-center justify-center gap-1 py-2 lg:flex",
   spacer: "min-w-0 flex-1 lg:hidden",
-  right: "flex shrink-0 items-center gap-2",
+  right: "flex shrink-0 items-center gap-2 justify-self-end lg:col-start-3",
   admin: "hidden lg:block",
   menuButton: `grid h-11 w-11 place-items-center rounded-[10px] border border-stone-300 bg-white text-stone-900 transition-colors hover:bg-stone-50 lg:hidden ${FOCUS}`,
   mobile: "max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-stone-200 bg-white lg:hidden",
@@ -345,7 +345,8 @@ function AccountMenu({
 /**
  * The TEAM header, the same in every app: logo, the cross-app links, the app's Admin menu,
  * and an account menu (who you are, View as…, Sign out). It spans the full window width, and
- * from 1024px the links always show (wrapping onto a second line if they don't fit on one);
+ * from 1024px the links always show, centred in the window (wrapping onto a second line if
+ * they don't fit on one);
  * only below 1024px do the links and the Admin menu fold into a menu button.
  * It stays at the top of the window while you scroll.
  */
