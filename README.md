@@ -133,7 +133,7 @@ const scheme = await sharedColorScheme();                   // Pages Router / el
 
 ## Emergency sign-in
 
-For when Microsoft sign-in is down. HR emails a one-time code to the person's personal email (HR admins keep it on each employee) and checks it; HR admins turn it on from HR's Employees page for a set time (4 hours to 3 days), after which it turns itself off; there's nothing to set or redeploy, and every app follows within a minute. Turning it off also stops codes already sent and ends the sign-ins they started. (`EMERGENCY_SIGN_IN` on HR remains only as a last-resort override.) A code (8 digits) is good for one app, once, for 10 minutes, and a sign-in made with one lasts at most 12 hours. Each app:
+For when Microsoft sign-in is down. HR emails a one-time code to the person's personal email (staff add and confirm it on HR → My profile, or HR admins set it) and checks it; HR admins turn it on from HR's Emergency sign-in page (HR admin menu) for a set time (4 hours to 3 days), after which it turns itself off; there's nothing to set or redeploy, and every app follows within a minute. Turning it off also stops codes already sent and ends the sign-ins they started. (`EMERGENCY_SIGN_IN` on HR remains only as a last-resort override.) A code (8 digits) is good for one app, once, for 10 minutes, and a sign-in made with one lasts at most 12 hours. Each app:
 
 ```ts
 // GET → { enabled }, POST { email } → always { ok: true } (503 when off), so nobody learns who works here.
