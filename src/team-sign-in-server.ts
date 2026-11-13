@@ -20,7 +20,7 @@ function hrEndpoint(env: NodeJS.ProcessEnv): { url: string; secret: string } | n
   return { url: `${hr}/api/internal/sign-out`, secret };
 }
 
-async function askHr<T>(body: Record<string, unknown>, env: NodeJS.ProcessEnv): Promise<T | null> {
+async function askHr<T>(body: Record<string, unknown>, env: NodeJS.ProcessEnv, timeoutMs = INTERNAL_FETCH_TIMEOUT_MS): Promise<T | null> {
   const hr = hrEndpoint(env);
   if (!hr) return null;
   try {
@@ -29,7 +29,7 @@ async function askHr<T>(body: Record<string, unknown>, env: NodeJS.ProcessEnv): 
       headers: { Authorization: `Bearer ${hr.secret}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
       cache: "no-store",
-      signal: AbortSignal.timeout(INTERNAL_FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) return null;
     return (await res.json()) as T;
@@ -43,6 +43,8 @@ function normalize(email: unknown): string {
 }
 
 const CACHE_MS = 30 * 1000;
+// The check runs on every signed-in request, so a slow HR mustn't hold pages up for long.
+const CHECK_TIMEOUT_MS = 2000;
 const cache = new Map<string, { at: number; value: number | null }>();
 
 /** Record with HR that this person signed out (of every app). Never throws; false if HR couldn't be told. */
@@ -64,17 +66,21 @@ export async function teamSessionSignedOut(
   account: unknown,
   env: NodeJS.ProcessEnv = process.env
 ): Promise<boolean> {
-  if (account || typeof token.signedInAt !== "number") token.signedInAt = Date.now();
+  // Stamped when signing in. A session from before this existed counts as started long ago, so
+  // the next sign-out ends it (stamping "now" here could be lost where the cookie can't be saved,
+  // and re-stamped on every request, so it would never end).
+  if (account) token.signedInAt = Date.now();
+  const since = typeof token.signedInAt === "number" ? token.signedInAt : 0;
   const e = normalize(token.email);
   if (!e.includes("@")) return false;
   let entry = cache.get(e);
   if (!entry || Date.now() - entry.at > CACHE_MS) {
-    const r = await askHr<{ signedOutAt?: number | null }>({ action: "get", email: e }, env);
-    if (!r) return false;
-    entry = { at: Date.now(), value: typeof r.signedOutAt === "number" ? r.signedOutAt : null };
+    const r = await askHr<{ signedOutAt?: number | null }>({ action: "get", email: e }, env, CHECK_TIMEOUT_MS);
+    // If HR can't answer, keep the session, and don't ask again for 30 seconds.
+    entry = { at: Date.now(), value: r && typeof r.signedOutAt === "number" ? r.signedOutAt : null };
     cache.set(e, entry);
   }
-  return entry.value !== null && entry.value > (token.signedInAt as number);
+  return entry.value !== null && entry.value > since;
 }
 
 /**
@@ -83,6 +89,8 @@ export async function teamSessionSignedOut(
  * "You signed out" page instead). Null without a tenant id.
  */
 export function microsoftSignOutUrl(returnTo: string, env: NodeJS.ProcessEnv = process.env): string | null {
+  // Microsoft needs a full address to come back to (NEXTAUTH_URL unset gives a relative one).
+  if (!/^https?:\/\//.test(returnTo)) return null;
   const tenant = env.AZURE_AD_TENANT_ID?.trim();
   if (!tenant || ["common", "organizations", "consumers"].includes(tenant.toLowerCase())) return null;
   return `https://login.microsoftonline.com/${encodeURIComponent(tenant)}/oauth2/v2.0/logout?post_logout_redirect_uri=${encodeURIComponent(returnTo)}`;
