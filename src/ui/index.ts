@@ -20,6 +20,12 @@ export { ActionMenu, moveMenuFocus, useDismiss, type ActionMenuItem } from "./Ac
 export { Dialog, SidePanel } from "./SidePanel";
 export { NoticeProvider, useConfirm, useNotice } from "./feedback";
 export { SignInCard } from "./SignInCard";
-export { EmergencySignIn, useEmergencySignIn, type EmergencySignInState } from "./EmergencySignIn";
+export {
+  EmergencySignIn,
+  TEAM_WORK_EMAIL_DOMAINS,
+  useEmergencySignIn,
+  workEmailProblem,
+  type EmergencySignInState,
+} from "./EmergencySignIn";
 export { TabLinks, Tabs, tabPanelProps, type TabItem } from "./Tabs";
 export { useModal } from "./useModal";
