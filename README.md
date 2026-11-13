@@ -90,6 +90,7 @@ Install the package as above (no build step: the built file is committed), copy 
 | `@team/shell/super-admin-server` | Server-side super-admin check against Updates |
 | `@team/shell/payroll-unread-server` | Server-side unread pay-stub check against Payroll |
 | `@team/shell/active-staff` | Server-side `onlyActiveStaff()` / `fetchActiveEmails()`: who HR lists as active, for View as (see below) |
+| `@team/shell/emergency-sign-in-server` | Server-side emergency sign-in against HR: on/off, send a code, check a code (see below) |
 | `@team/shell/appearance` | Server-side `sharedColorScheme()`: the color scheme chosen in Updates, as CSS variables (see below) |
 | `@team/shell/styles/team-shell.css` | Header styles (plain class names) |
 | `@team/shell/dist/team-shell.js` | Prebuilt browser script for static pages (see above) |
@@ -112,6 +113,30 @@ import { sharedColorScheme } from "@team/shell/appearance";
 const scheme = await sharedColorScheme({ revalidate: 60 }); // App Router: Next's data cache
 const scheme = await sharedColorScheme();                   // Pages Router / elsewhere: kept in memory for a minute
 ```
+
+## Emergency sign-in
+
+For when Microsoft sign-in is down. HR emails a one-time code to the person's personal email (HR admins keep it on each employee) and checks it; it's off unless `EMERGENCY_SIGN_IN=on` is set on HR, and turning it off also stops codes already sent. A code (8 digits) is good for one app, once, for 10 minutes, and a sign-in made with one lasts at most 12 hours. Each app:
+
+```ts
+// GET → { enabled }, POST { email } → always { ok: true } (503 when off), so nobody learns who works here.
+import { clientIpFrom, emergencySignInEnabledRemote, requestEmergencyCodeRemote } from "@team/shell/emergency-sign-in-server";
+
+// NextAuth: a credentials provider with id "emergency-code" ({ email, code }); the signIn callback still decides access.
+import { verifyEmergencyCodeRemote } from "@team/shell/emergency-sign-in-server";
+const user = await verifyEmergencyCodeRemote({ email, app: "payroll", code, ip: clientIpFrom(req?.headers) }); // null unless the code is right
+
+// NextAuth jwt callback: code sign-ins end after 12 hours, or as soon as HR's switch is off.
+import { emergencySessionEnded } from "@team/shell/emergency-sign-in-server";
+if (await emergencySessionEnded(token, account)) throw new Error("Emergency sign-in session ended.");
+
+// Sign-in page: wait for the status before sending people to Microsoft, and skip that while it's on.
+import { EmergencySignIn, useEmergencySignIn } from "@team/shell/ui";
+const emergency = useEmergencySignIn(); // "loading" | "on" | "off"
+{emergency === "on" ? <EmergencySignIn appName="Payroll" signIn={signIn} callbackUrl={callbackUrl} /> : null}
+```
+
+HR calls its own code directly rather than these helpers.
 
 Updates serves the appearance endpoint and HR serves the active-staff one, so neither calls its own. TEAM Payroll's server code is CommonJS JavaScript (`require`) and can't load these TypeScript modules, so it keeps its own copy of the active-staff check in `lib/active-staff.js`.
 
