@@ -21,7 +21,15 @@ export { Dialog, SidePanel } from "./SidePanel";
 export { NoticeProvider, useConfirm, useNotice } from "./feedback";
 export { SignInCard } from "./SignInCard";
 export { EmergencySignIn, useEmergencySignIn, type EmergencySignInState } from "./EmergencySignIn";
-export { SIGNED_OUT_PARAM, signInWithMicrosoft, teamSignOut, useTeamAutoSignIn, type TeamSignInPhase } from "./TeamSignIn";
+export {
+  AUTO_SIGN_IN_STOPPED_TEXT,
+  SIGNED_OUT_PARAM,
+  signInWithMicrosoft,
+  teamSignOut,
+  useTeamAutoSignIn,
+  useTeamAutoSignInState,
+  type TeamSignInPhase,
+} from "./TeamSignIn";
 export { EMERGENCY_NOT_TEAM_ADDRESS } from "../emergency-sign-in-shared";
 export { TabLinks, Tabs, tabPanelProps, type TabItem } from "./Tabs";
 export { useModal } from "./useModal";

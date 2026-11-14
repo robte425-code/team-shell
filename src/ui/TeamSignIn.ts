@@ -25,24 +25,37 @@ const TRIED_KEY = "team_sso_interactive";
 // after Microsoft signs them in, stop after a few tries instead of looping (Microsoft blocks a
 // loop with AADSTS50196, for every TEAM app, since they share one app registration).
 const ATTEMPTS_KEY = "team_sso_attempts";
-const MAX_AUTO_ATTEMPTS = 3;
-const ATTEMPT_WINDOW_MS = 2 * 60 * 1000;
+export const MAX_AUTO_SIGN_INS = 3;
+export const AUTO_SIGN_IN_WINDOW_MS = 2 * 60 * 1000;
 
-function readAttempts(now: number): number[] {
-  try {
-    const list = JSON.parse(sessionStorage.getItem(ATTEMPTS_KEY) || "[]");
-    return Array.isArray(list) ? list.filter((t) => typeof t === "number" && now - t < ATTEMPT_WINDOW_MS) : [];
-  } catch {
-    return [];
-  }
+/**
+ * The automatic sign-ins from `stored` (sessionStorage's list) still inside the window. Times
+ * in the future are dropped too, so moving the computer's clock back can't keep them "recent".
+ */
+export function recentAutoSignIns(stored: unknown, now: number): number[] {
+  return Array.isArray(stored)
+    ? stored.filter((t): t is number => typeof t === "number" && t <= now && now - t < AUTO_SIGN_IN_WINDOW_MS)
+    : [];
+}
+
+/** The list after trying an automatic sign-in now, or null when there have been too many lately. */
+export function nextAutoSignIns(stored: unknown, now: number): number[] | null {
+  const recent = recentAutoSignIns(stored, now);
+  return recent.length >= MAX_AUTO_SIGN_INS ? null : [...recent, now];
 }
 
 /** Notes an automatic sign-in; false when there have been too many lately (show the button). */
 function mayAutoSignIn(now = Date.now()): boolean {
-  const recent = readAttempts(now);
-  if (recent.length >= MAX_AUTO_ATTEMPTS) return false;
+  let stored: unknown = [];
   try {
-    sessionStorage.setItem(ATTEMPTS_KEY, JSON.stringify([...recent, now]));
+    stored = JSON.parse(sessionStorage.getItem(ATTEMPTS_KEY) || "[]");
+  } catch {
+    stored = [];
+  }
+  const next = nextAutoSignIns(stored, now);
+  if (!next) return false;
+  try {
+    sessionStorage.setItem(ATTEMPTS_KEY, JSON.stringify(next));
   } catch {
     /* private mode */
   }
@@ -59,14 +72,7 @@ function clearAttempts() {
 
 export type TeamSignInPhase = "checking" | "redirecting" | "manual";
 
-export function useTeamAutoSignIn({
-  signIn,
-  callbackUrl = "/",
-  error,
-  signedOut = false,
-  ready = true,
-  enabled = true,
-}: {
+type AutoSignInOptions = {
   signIn: SignInFn;
   callbackUrl?: string;
   /** NextAuth's ?error= on the sign-in page, if any. */
@@ -77,9 +83,28 @@ export function useTeamAutoSignIn({
   ready?: boolean;
   /** False where Microsoft sign-in isn't set up (local copies). */
   enabled?: boolean;
-}): TeamSignInPhase {
+};
+
+/** The sign-in page's phase. Pages that want to say why it stopped use useTeamAutoSignInState. */
+export function useTeamAutoSignIn(options: AutoSignInOptions): TeamSignInPhase {
+  return useTeamAutoSignInState(options).phase;
+}
+
+/**
+ * The phase, and `stopped`: automatic sign-in gave up because the app kept sending this tab
+ * back here (show AUTO_SIGN_IN_STOPPED_TEXT by the button, so it's clear why it's waiting).
+ */
+export function useTeamAutoSignInState({
+  signIn,
+  callbackUrl = "/",
+  error,
+  signedOut = false,
+  ready = true,
+  enabled = true,
+}: AutoSignInOptions): { phase: TeamSignInPhase; stopped: boolean } {
   const emergency = useEmergencySignIn();
   const [phase, setPhase] = useState<TeamSignInPhase>("checking");
+  const [stopped, setStopped] = useState(false);
   const started = useRef(false);
 
   useEffect(() => {
@@ -94,6 +119,7 @@ export function useTeamAutoSignIn({
       return;
     }
     if (!mayAutoSignIn()) {
+      setStopped(true);
       setPhase("manual");
       return;
     }
@@ -115,8 +141,12 @@ export function useTeamAutoSignIn({
     setPhase("manual");
   }, [ready, emergency, enabled, signedOut, error, callbackUrl, signIn]);
 
-  return phase;
+  return { phase, stopped };
 }
+
+/** Shown by the button when automatic sign-in stopped (useTeamAutoSignInState's `stopped`). */
+export const AUTO_SIGN_IN_STOPPED_TEXT =
+  "Automatic sign-in stopped because this app kept sending you back here. Try the button below; if it happens again, tell your administrator.";
 
 /** The "Sign in with Microsoft" button's action: Microsoft's page, remembering it was tried. */
 export function signInWithMicrosoft(signIn: SignInFn, callbackUrl = "/") {
