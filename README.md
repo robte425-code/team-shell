@@ -90,7 +90,7 @@ Install the package as above (no build step: the built file is committed), copy 
 | `@team/shell/super-admin-server` | Server-side super-admin check against Updates |
 | `@team/shell/payroll-unread-server` | Server-side unread pay-stub check against Payroll |
 | `@team/shell/messages-unread-server` | Server-side unread message count from Messages (see below) |
-| `@team/shell/active-staff` | Server-side `onlyActiveStaff()` / `fetchActiveEmails()`: who HR lists as active, for View as (see below) |
+| `@team/shell/active-staff` | Server-side `onlyActiveStaff()` / `fetchActiveEmails()` / `isActiveStaffEmail()`: who HR lists as active, for View as and for sign-in with an address outside the TEAM domains (see below) |
 | `@team/shell/team-sign-in-server` | Server-side one sign-in for all apps: sign-out record with HR, ending sessions signed out elsewhere, Microsoft sign-out URL (see below) |
 | `@team/shell/emergency-sign-in-server` | Server-side emergency sign-in against HR: on/off, send a code, check a code (see below) |
 | `@team/shell/appearance` | Server-side `sharedColorScheme()`: the color scheme chosen in Updates, as CSS variables (see below) |
@@ -124,6 +124,12 @@ Server only (route handlers, layouts, `getInitialProps`): they send `TEAM_INTERN
 // Kept in memory for a minute, one shared refresh; everyone, if HR can't be asked.
 import { onlyActiveStaff } from "@team/shell/active-staff";
 const users = await onlyActiveStaff(allUsers, (u) => u.email);
+
+// Sign-in gate: an address outside ALLOWED_DOMAIN (a Microsoft guest in TEAM's directory, such
+// as someone with no TEAM mailbox) may sign in only while HR has it as an active person's work
+// email. True, false, or null when HR can't be asked: treat null as no.
+import { isActiveStaffEmail } from "@team/shell/active-staff";
+const allowed = isAllowedDomain(email) || (await isActiveStaffEmail(email)) === true;
 
 // The color scheme chosen in Updates (GET /api/internal/appearance), as CSS variables for <body>.
 // Null when Updates can't be asked; the app's globals.css defaults apply then.

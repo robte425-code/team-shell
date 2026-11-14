@@ -1,7 +1,8 @@
 import { INTERNAL_FETCH_TIMEOUT_MS, internalAppOrigin } from "./internal-urls";
 
 /**
- * Server only. Who HR lists as active, for "View as" pickers in the other TEAM apps.
+ * Server only. Who HR lists as active, for "View as" pickers in the other TEAM apps, and for
+ * signing in with an address outside the TEAM domains (isActiveStaffEmail).
  *
  * Asks HR's GET /api/internal/active-staff with TEAM_INTERNAL_ACCESS_SECRET. The answer is
  * kept in memory for a minute, and concurrent callers share one refresh. When HR can't be
@@ -60,4 +61,20 @@ export async function onlyActiveStaff<T>(users: T[], emailOf: (u: T) => string |
   const active = await activeStaffEmails();
   if (!active) return users;
   return users.filter((u) => active.has(String(emailOf(u) ?? "").trim().toLowerCase()));
+}
+
+/**
+ * Whether HR lists `email` as an active person's sign-in (work) email: true or false, or null
+ * when HR can't be asked. Cached for a minute, like the rest of this file.
+ *
+ * For sign-in gates: someone without a TEAM mailbox (a Microsoft guest in TEAM's directory,
+ * signing in with their own address) may sign in only while HR has that address as their work
+ * email. Microsoft sign-in is single-tenant, so they must also be in TEAM's directory. Treat
+ * null as no: an outside address is never let in on the domain rule alone.
+ */
+export async function isActiveStaffEmail(email: string | null | undefined): Promise<boolean | null> {
+  const normalized = String(email ?? "").trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+$/.test(normalized)) return false;
+  const active = await activeStaffEmails();
+  return active ? active.has(normalized) : null;
 }
