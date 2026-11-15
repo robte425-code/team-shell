@@ -248,14 +248,15 @@ export function messagesUserNav(pathname: string, env?: NodeJS.ProcessEnv): User
   ];
 }
 
-/** Messages' admin page (all messages) is for super admins only. */
+/** Messages' admin pages (all messages, and settings such as which channels keep messages) are for super admins only. */
 export function messagesAdminSections(
   pathname: string,
   env?: NodeJS.ProcessEnv,
   options?: { includePlatformHub?: boolean; includeAppAdmin?: boolean }
 ): AdminNavSection[] {
   const items: AdminNavItem[] = [
-    { href: "/admin", label: "All messages", isActive: (p) => p.startsWith("/admin") },
+    { href: "/admin", label: "All messages", isActive: (p) => p === "/admin" || p === "/admin/" },
+    { href: "/admin/settings", label: "Settings", isActive: (p) => p.startsWith("/admin/settings") },
   ];
   return adminMenu("Messages", items, options, env);
 }
