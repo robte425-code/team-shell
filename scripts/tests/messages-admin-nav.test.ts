@@ -16,4 +16,7 @@ assert.deepEqual(active("/admin"), ["All messages"]);
 assert.deepEqual(active("/admin/settings"), ["Settings"]);
 assert.deepEqual(active("/"), []);
 assert.deepEqual(messagesAdminSections("/admin", {}, { includeAppAdmin: false }), []);
+// Managing channels without reading everything: Settings only.
+const [settingsOnly] = messagesAdminSections("/admin/settings", {}, { includeAppAdmin: true, includeAllMessages: false });
+assert.deepEqual(settingsOnly.items.map((i) => i.label), ["Settings"]);
 console.log("messages admin nav: ok");
