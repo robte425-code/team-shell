@@ -262,7 +262,7 @@ export function messagesAdminSections(
     ...(options?.includeAllMessages === false
       ? []
       : [{ href: "/admin", label: "All messages", isActive: (p: string) => p === "/admin" || p === "/admin/" }]),
-    { href: "/admin/settings", label: "Settings", isActive: (p) => p.startsWith("/admin/settings") },
+    { href: "/admin/settings", label: "Settings", isActive: (p) => p === "/admin/settings" || p.startsWith("/admin/settings/") },
   ];
   return adminMenu("Messages", items, options, env);
 }
