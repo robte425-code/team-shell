@@ -14,6 +14,8 @@ assert.deepEqual(
 const active = (p: string) => messages.items.filter((i) => i.isActive?.(p)).map((i) => i.label);
 assert.deepEqual(active("/admin"), ["All messages"]);
 assert.deepEqual(active("/admin/settings"), ["Settings"]);
+assert.deepEqual(active("/admin/settings/channels"), ["Settings"], "a page under Settings");
+assert.deepEqual(active("/admin/settings-old"), [], "only Settings itself and pages under it");
 assert.deepEqual(active("/"), []);
 assert.deepEqual(messagesAdminSections("/admin", {}, { includeAppAdmin: false }), []);
 // Managing channels without reading everything: Settings only.
