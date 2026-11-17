@@ -4,7 +4,11 @@
  * Built by `npm run build:script` into dist/team-shell.js (IIFE, React bundled, the CSS from
  * styles/team-shell.css injected). Loading it sets:
  *
- *   window.TeamShell = { mount, refreshPayrollNavBadge }
+ *   window.TeamShell = { mount, refreshPayrollNavBadge, loadAvatarColors, avatarColorFor }
+ *
+ * loadAvatarColors() resolves once everyone's circle colors are in (see ../avatar-colors);
+ * avatarColorFor(email) then gives a person's "#rrggbb", or null. Pages use them to color their
+ * own circles; the header colors its own.
  *
  * mount() renders into #team-shell-root using the package's own components and nav config,
  * and returns a controller the page drives with its own API data (see ShellController).
@@ -12,6 +16,7 @@
 import { useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
+import { avatarColorFor, loadAvatarColors } from "../avatar-colors";
 import { ImpersonationBanner } from "../components/ImpersonationBanner";
 import { TeamHeader } from "../components/TeamHeader";
 import type { ViewAsChange } from "../components/ViewAsDropdown";
@@ -366,4 +371,9 @@ function mount(options: MountOptions = {}): ShellController | null {
   return controller;
 }
 
-(window as unknown as { TeamShell: unknown }).TeamShell = { mount, refreshPayrollNavBadge };
+(window as unknown as { TeamShell: unknown }).TeamShell = {
+  mount,
+  refreshPayrollNavBadge,
+  loadAvatarColors,
+  avatarColorFor,
+};

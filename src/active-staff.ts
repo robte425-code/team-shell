@@ -1,8 +1,9 @@
 import { INTERNAL_FETCH_TIMEOUT_MS, internalAppOrigin } from "./internal-urls";
 
 /**
- * Server only. Who HR lists as active, for "View as" pickers in the other TEAM apps, and for
- * signing in with an address outside the TEAM domains (isActiveStaffEmail).
+ * Server only. Who HR lists as active, for "View as" pickers in the other TEAM apps, for
+ * signing in with an address outside the TEAM domains (isActiveStaffEmail), and for everyone's
+ * circle color (avatarColorsByEmail).
  *
  * Asks HR's GET /api/internal/active-staff with TEAM_INTERNAL_ACCESS_SECRET. The answer is
  * kept in memory for a minute, and concurrent callers share one refresh. When HR can't be
@@ -11,11 +12,19 @@ import { INTERNAL_FETCH_TIMEOUT_MS, internalAppOrigin } from "./internal-urls";
  */
 
 const CACHE_MS = 60 * 1000;
-let cached: { at: number; emails: Set<string> | null } = { at: 0, emails: null };
+
+type ActiveStaff = { emails: Set<string>; colors: Record<string, string>; byName: Record<string, string> };
+
+/** A name as compared for avatarColorByName: lower-case, single spaces. */
+const nameKey = (name: unknown) => String(name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+
+let cached: { at: number; staff: ActiveStaff | null } = { at: 0, staff: null };
 let pending: Promise<void> | null = null;
 
-/** Lowercased sign-in emails of active people, straight from HR (no cache). Null when HR can't be asked. */
-export async function fetchActiveEmails(env: NodeJS.ProcessEnv = process.env): Promise<Set<string> | null> {
+const HEX = /^#[0-9a-f]{6}$/;
+
+/** HR's active staff (no cache): sign-in emails, and each one's circle color. Null when HR can't be asked. */
+async function fetchActiveStaff(env: NodeJS.ProcessEnv = process.env): Promise<ActiveStaff | null> {
   const secret = env.TEAM_INTERNAL_ACCESS_SECRET?.trim();
   const hr = internalAppOrigin("hr", env);
   if (!secret || !hr) return null;
@@ -29,23 +38,60 @@ export async function fetchActiveEmails(env: NodeJS.ProcessEnv = process.env): P
       console.error(`[active-staff] HR answered ${res.status}; View as shows everyone for now.`);
       return null;
     }
-    const data = (await res.json()) as { users?: { email?: unknown }[] };
+    const data = (await res.json()) as {
+      users?: { email?: unknown; displayName?: unknown; avatarColor?: unknown }[];
+      colors?: Record<string, unknown>;
+    };
     if (!Array.isArray(data.users)) return null;
-    return new Set(
-      data.users.map((u) => String(u?.email ?? "").trim().toLowerCase()).filter((e) => e.includes("@"))
-    );
+    const emails = new Set<string>();
+    const colors: Record<string, string> = {};
+    const addColor = (rawEmail: unknown, rawColor: unknown) => {
+      const email = String(rawEmail ?? "").trim().toLowerCase();
+      const color = String(rawColor ?? "").trim().toLowerCase();
+      if (email.includes("@") && HEX.test(color)) colors[email] = color;
+    };
+    for (const u of data.users) {
+      const email = String(u?.email ?? "").trim().toLowerCase();
+      if (!email.includes("@")) continue;
+      emails.add(email);
+      addColor(email, u?.avatarColor);
+    }
+    // Everyone who hasn't left, including people on leave who aren't in `users`, so their
+    // circle is the same here as in HR.
+    if (data.colors && typeof data.colors === "object") {
+      for (const [email, color] of Object.entries(data.colors)) addColor(email, color);
+    }
+    // By name too, for lists that only have a name (Updates' birthdays). A name two people
+    // share isn't used.
+    const byName: Record<string, string> = {};
+    const shared = new Set<string>();
+    for (const u of data.users) {
+      const k = nameKey(u?.displayName);
+      const color = colors[String(u?.email ?? "").trim().toLowerCase()];
+      if (!k || !color) continue;
+      if (k in byName || shared.has(k)) {
+        delete byName[k];
+        shared.add(k);
+      } else byName[k] = color;
+    }
+    return { emails, colors, byName };
   } catch (e) {
     console.error("[active-staff] Couldn't reach HR; View as shows everyone for now.", e instanceof Error ? e.message : e);
     return null;
   }
 }
 
-async function activeStaffEmails(): Promise<Set<string> | null> {
+/** Lowercased sign-in emails of active people, straight from HR (no cache). Null when HR can't be asked. */
+export async function fetchActiveEmails(env: NodeJS.ProcessEnv = process.env): Promise<Set<string> | null> {
+  return (await fetchActiveStaff(env))?.emails ?? null;
+}
+
+async function activeStaff(): Promise<ActiveStaff | null> {
   if (Date.now() - cached.at > CACHE_MS) {
     if (!pending) {
-      pending = fetchActiveEmails()
-        .then((emails) => {
-          cached = { at: Date.now(), emails };
+      pending = fetchActiveStaff()
+        .then((staff) => {
+          cached = { at: Date.now(), staff };
         })
         .finally(() => {
           pending = null;
@@ -53,7 +99,29 @@ async function activeStaffEmails(): Promise<Set<string> | null> {
     }
     await pending;
   }
-  return cached.emails;
+  return cached.staff;
+}
+
+async function activeStaffEmails(): Promise<Set<string> | null> {
+  return (await activeStaff())?.emails ?? null;
+}
+
+/**
+ * Everyone's circle color, chosen in HR: { "<sign-in email>": "#rrggbb" }. Empty when HR
+ * can't be asked, so circles fall back to their neutral look. Cached for a minute, like the
+ * rest of this file. Serve it, signed-in only, at GET /api/team/avatar-colors as { colors }.
+ */
+export async function avatarColorsByEmail(): Promise<Record<string, string>> {
+  return { ...((await activeStaff())?.colors ?? {}) };
+}
+
+/**
+ * The circle color of the one active person with this name (as HR has it, any case), or null:
+ * nobody, more than one, no color, or HR can't be asked. For lists that know only a name.
+ */
+export async function avatarColorByName(name: string | null | undefined): Promise<string | null> {
+  const k = nameKey(name);
+  return (k && (await activeStaff())?.byName[k]) || null;
 }
 
 /** Keep only people HR lists as active; everyone, if HR couldn't be asked. */

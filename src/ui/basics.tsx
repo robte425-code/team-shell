@@ -8,6 +8,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { useAvatarColor } from "../avatar-colors";
 import { InboxIcon, SearchIcon } from "./icons";
 import {
   buttonClass,
@@ -58,27 +59,46 @@ const AVATAR_SIZES = {
   lg: "h-9 w-9 text-[13px]",
 };
 
+/**
+ * A person's initials in a circle, in the color they chose in HR (looked up by `email`; see
+ * ../avatar-colors), with white initials. `color` overrides the lookup. People without a color
+ * get `neutralClassName` (dark gray by default; a spot with its own usual tones passes them).
+ * For another size, pass `size={null}` and set it in `className` ("h-5 w-5 text-[9px]");
+ * `children` go inside (a presence dot).
+ */
 export function Avatar({
   name,
   email,
+  color,
   size = "md",
   className,
+  neutralClassName = "bg-stone-900 text-white",
+  children,
 }: {
   name?: string | null;
   email?: string | null;
-  size?: keyof typeof AVATAR_SIZES;
+  color?: string | null;
+  /** null: no built-in size, for a `className` that sets its own ("h-5 w-5 text-[9px]"). */
+  size?: keyof typeof AVATAR_SIZES | null;
   className?: string;
+  neutralClassName?: string;
+  children?: ReactNode;
 }) {
+  const chosen = useAvatarColor(email);
+  const background = color ?? chosen;
   return (
     <span
       aria-hidden
       className={cx(
-        "inline-grid shrink-0 place-items-center rounded-full bg-stone-900 font-semibold text-white",
-        AVATAR_SIZES[size],
+        "relative inline-grid shrink-0 place-items-center rounded-full font-semibold",
+        size ? AVATAR_SIZES[size] : null,
+        background ? "text-white" : neutralClassName,
         className
       )}
+      style={background ? { backgroundColor: background } : undefined}
     >
       {initialsFor(name, email)}
+      {children}
     </span>
   );
 }
