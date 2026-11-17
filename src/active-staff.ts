@@ -13,7 +13,10 @@ import { INTERNAL_FETCH_TIMEOUT_MS, internalAppOrigin } from "./internal-urls";
 
 const CACHE_MS = 60 * 1000;
 
-type ActiveStaff = { emails: Set<string>; colors: Record<string, string> };
+type ActiveStaff = { emails: Set<string>; colors: Record<string, string>; byName: Record<string, string> };
+
+/** A name as compared for avatarColorByName: lower-case, single spaces. */
+const nameKey = (name: unknown) => String(name ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 
 let cached: { at: number; staff: ActiveStaff | null } = { at: 0, staff: null };
 let pending: Promise<void> | null = null;
@@ -36,7 +39,7 @@ async function fetchActiveStaff(env: NodeJS.ProcessEnv = process.env): Promise<A
       return null;
     }
     const data = (await res.json()) as {
-      users?: { email?: unknown; avatarColor?: unknown }[];
+      users?: { email?: unknown; displayName?: unknown; avatarColor?: unknown }[];
       colors?: Record<string, unknown>;
     };
     if (!Array.isArray(data.users)) return null;
@@ -58,7 +61,20 @@ async function fetchActiveStaff(env: NodeJS.ProcessEnv = process.env): Promise<A
     if (data.colors && typeof data.colors === "object") {
       for (const [email, color] of Object.entries(data.colors)) addColor(email, color);
     }
-    return { emails, colors };
+    // By name too, for lists that only have a name (Updates' birthdays). A name two people
+    // share isn't used.
+    const byName: Record<string, string> = {};
+    const shared = new Set<string>();
+    for (const u of data.users) {
+      const k = nameKey(u?.displayName);
+      const color = colors[String(u?.email ?? "").trim().toLowerCase()];
+      if (!k || !color) continue;
+      if (k in byName || shared.has(k)) {
+        delete byName[k];
+        shared.add(k);
+      } else byName[k] = color;
+    }
+    return { emails, colors, byName };
   } catch (e) {
     console.error("[active-staff] Couldn't reach HR; View as shows everyone for now.", e instanceof Error ? e.message : e);
     return null;
@@ -97,6 +113,15 @@ async function activeStaffEmails(): Promise<Set<string> | null> {
  */
 export async function avatarColorsByEmail(): Promise<Record<string, string>> {
   return { ...((await activeStaff())?.colors ?? {}) };
+}
+
+/**
+ * The circle color of the one active person with this name (as HR has it, any case), or null:
+ * nobody, more than one, no color, or HR can't be asked. For lists that know only a name.
+ */
+export async function avatarColorByName(name: string | null | undefined): Promise<string | null> {
+  const k = nameKey(name);
+  return (k && (await activeStaff())?.byName[k]) || null;
 }
 
 /** Keep only people HR lists as active; everyone, if HR couldn't be asked. */

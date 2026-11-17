@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { avatarColorsByEmail, isActiveStaffEmail } from "../../src/active-staff";
+import { avatarColorByName, avatarColorsByEmail, isActiveStaffEmail } from "../../src/active-staff";
 import {
   AVATAR_COLORS_PATH,
   avatarColorFor,
@@ -35,19 +35,24 @@ async function serverSide() {
   respond = () =>
     ok({
       users: [
-        { email: " Ann@Example.TEST ", avatarColor: "#1D4ED8" },
-        { email: "bo@example.test", avatarColor: "not-a-color" },
-        { email: "cy@example.test" },
+        { email: " Ann@Example.TEST ", displayName: "Ann  Example", avatarColor: "#1D4ED8" },
+        { email: "bo@example.test", displayName: "Bo Sample", avatarColor: "not-a-color" },
+        { email: "cy@example.test", displayName: "Cy Twin", avatarColor: "#0F766E" },
+        { email: "cy2@example.test", displayName: "cy twin", avatarColor: "#9333EA" },
         { email: "no-at-sign", avatarColor: "#123456" },
       ],
       colors: { "Di.Leave@example.test": "#0F766E", "x": "#123456", "bo@example.test": "nope" },
     });
   assert.deepEqual(
     await avatarColorsByEmail(),
-    { "ann@example.test": "#1d4ed8", "di.leave@example.test": "#0f766e" },
+    { "ann@example.test": "#1d4ed8", "cy@example.test": "#0f766e", "cy2@example.test": "#9333ea", "di.leave@example.test": "#0f766e" },
     "only good colors, by lower-case email; people on leave (in colors, not users) too"
   );
   assert.equal(await isActiveStaffEmail("di.leave@example.test"), false, "a color doesn't make someone active staff");
+  assert.equal(await avatarColorByName(" ann example "), "#1d4ed8", "by name, any case and spacing");
+  assert.equal(await avatarColorByName("Cy Twin"), null, "two people share the name: neither");
+  assert.equal(await avatarColorByName("Bo Sample"), null, "no color");
+  assert.equal(await avatarColorByName(""), null);
   assert.equal(await isActiveStaffEmail("bo@example.test"), true, "people without a color are still active staff");
   const before = requested.length;
   await avatarColorsByEmail();
@@ -121,6 +126,9 @@ function avatar() {
   );
   assert.match(light, /bg-stone-200 text-stone-700/, "a spot's own neutral tones");
   assert.match(light, /<i id="dot"><\/i>/, "children go inside");
+  const custom = renderToStaticMarkup(createElement(Avatar, { name: "Ann Example", size: null, className: "h-5 w-5 text-[9px]" }));
+  assert.doesNotMatch(custom, /h-8|h-7|h-9/, "size={null}: only the caller's size");
+  assert.match(custom, /h-5 w-5/);
 }
 
 /** In a browser: circles render neutral, then take the color when it arrives, all from one request. */
