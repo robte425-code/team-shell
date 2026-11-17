@@ -1,8 +1,9 @@
 import { INTERNAL_FETCH_TIMEOUT_MS, internalAppOrigin } from "./internal-urls";
 
 /**
- * Server only. Who HR lists as active, for "View as" pickers in the other TEAM apps, and for
- * signing in with an address outside the TEAM domains (isActiveStaffEmail).
+ * Server only. Who HR lists as active, for "View as" pickers in the other TEAM apps, for
+ * signing in with an address outside the TEAM domains (isActiveStaffEmail), and for everyone's
+ * circle color (avatarColorsByEmail).
  *
  * Asks HR's GET /api/internal/active-staff with TEAM_INTERNAL_ACCESS_SECRET. The answer is
  * kept in memory for a minute, and concurrent callers share one refresh. When HR can't be
@@ -11,11 +12,16 @@ import { INTERNAL_FETCH_TIMEOUT_MS, internalAppOrigin } from "./internal-urls";
  */
 
 const CACHE_MS = 60 * 1000;
-let cached: { at: number; emails: Set<string> | null } = { at: 0, emails: null };
+
+type ActiveStaff = { emails: Set<string>; colors: Record<string, string> };
+
+let cached: { at: number; staff: ActiveStaff | null } = { at: 0, staff: null };
 let pending: Promise<void> | null = null;
 
-/** Lowercased sign-in emails of active people, straight from HR (no cache). Null when HR can't be asked. */
-export async function fetchActiveEmails(env: NodeJS.ProcessEnv = process.env): Promise<Set<string> | null> {
+const HEX = /^#[0-9a-f]{6}$/;
+
+/** HR's active staff (no cache): sign-in emails, and each one's circle color. Null when HR can't be asked. */
+async function fetchActiveStaff(env: NodeJS.ProcessEnv = process.env): Promise<ActiveStaff | null> {
   const secret = env.TEAM_INTERNAL_ACCESS_SECRET?.trim();
   const hr = internalAppOrigin("hr", env);
   if (!secret || !hr) return null;
@@ -29,23 +35,35 @@ export async function fetchActiveEmails(env: NodeJS.ProcessEnv = process.env): P
       console.error(`[active-staff] HR answered ${res.status}; View as shows everyone for now.`);
       return null;
     }
-    const data = (await res.json()) as { users?: { email?: unknown }[] };
+    const data = (await res.json()) as { users?: { email?: unknown; avatarColor?: unknown }[] };
     if (!Array.isArray(data.users)) return null;
-    return new Set(
-      data.users.map((u) => String(u?.email ?? "").trim().toLowerCase()).filter((e) => e.includes("@"))
-    );
+    const emails = new Set<string>();
+    const colors: Record<string, string> = {};
+    for (const u of data.users) {
+      const email = String(u?.email ?? "").trim().toLowerCase();
+      if (!email.includes("@")) continue;
+      emails.add(email);
+      const color = String(u?.avatarColor ?? "").trim().toLowerCase();
+      if (HEX.test(color)) colors[email] = color;
+    }
+    return { emails, colors };
   } catch (e) {
     console.error("[active-staff] Couldn't reach HR; View as shows everyone for now.", e instanceof Error ? e.message : e);
     return null;
   }
 }
 
-async function activeStaffEmails(): Promise<Set<string> | null> {
+/** Lowercased sign-in emails of active people, straight from HR (no cache). Null when HR can't be asked. */
+export async function fetchActiveEmails(env: NodeJS.ProcessEnv = process.env): Promise<Set<string> | null> {
+  return (await fetchActiveStaff(env))?.emails ?? null;
+}
+
+async function activeStaff(): Promise<ActiveStaff | null> {
   if (Date.now() - cached.at > CACHE_MS) {
     if (!pending) {
-      pending = fetchActiveEmails()
-        .then((emails) => {
-          cached = { at: Date.now(), emails };
+      pending = fetchActiveStaff()
+        .then((staff) => {
+          cached = { at: Date.now(), staff };
         })
         .finally(() => {
           pending = null;
@@ -53,7 +71,20 @@ async function activeStaffEmails(): Promise<Set<string> | null> {
     }
     await pending;
   }
-  return cached.emails;
+  return cached.staff;
+}
+
+async function activeStaffEmails(): Promise<Set<string> | null> {
+  return (await activeStaff())?.emails ?? null;
+}
+
+/**
+ * Everyone's circle color, chosen in HR: { "<sign-in email>": "#rrggbb" }. Empty when HR
+ * can't be asked, so circles fall back to their neutral look. Cached for a minute, like the
+ * rest of this file. Serve it, signed-in only, at GET /api/team/avatar-colors as { colors }.
+ */
+export async function avatarColorsByEmail(): Promise<Record<string, string>> {
+  return { ...((await activeStaff())?.colors ?? {}) };
 }
 
 /** Keep only people HR lists as active; everyone, if HR couldn't be asked. */

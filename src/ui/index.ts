@@ -33,3 +33,12 @@ export {
 export { EMERGENCY_NOT_TEAM_ADDRESS } from "../emergency-sign-in-shared";
 export { TabLinks, Tabs, tabPanelProps, type TabItem } from "./Tabs";
 export { useModal } from "./useModal";
+export {
+  AVATAR_COLORS_PATH,
+  avatarColorFor,
+  loadAvatarColors,
+  setAvatarColor,
+  setAvatarColorsEndpoint,
+  useAvatarColor,
+  type AvatarColors,
+} from "../avatar-colors";

@@ -90,7 +90,8 @@ Install the package as above (no build step: the built file is committed), copy 
 | `@team/shell/super-admin-server` | Server-side super-admin check against Updates |
 | `@team/shell/payroll-unread-server` | Server-side unread pay-stub check against Payroll |
 | `@team/shell/messages-unread-server` | Server-side unread message count from Messages (see below) |
-| `@team/shell/active-staff` | Server-side `onlyActiveStaff()` / `fetchActiveEmails()` / `isActiveStaffEmail()`: who HR lists as active, for View as and for sign-in with an address outside the TEAM domains (see below) |
+| `@team/shell/active-staff` | Server-side `onlyActiveStaff()` / `fetchActiveEmails()` / `isActiveStaffEmail()`: who HR lists as active, for View as and for sign-in with an address outside the TEAM domains; `avatarColorsByEmail()`: everyone's circle color (see below) |
+| `@team/shell/avatar-colors` | Browser side of circle colors: `useAvatarColor(email)`, `loadAvatarColors()`, `avatarColorFor(email)`, `setAvatarColor()` (also exported from `@team/shell/ui`) |
 | `@team/shell/team-sign-in-server` | Server-side one sign-in for all apps: sign-out record with HR, ending sessions signed out elsewhere, Microsoft sign-out URL (see below) |
 | `@team/shell/emergency-sign-in-server` | Server-side emergency sign-in against HR: on/off, send a code, check a code (see below) |
 | `@team/shell/appearance` | Server-side `sharedColorScheme()`: the color scheme chosen in Updates, as CSS variables (see below) |
@@ -137,6 +138,24 @@ import { sharedColorScheme } from "@team/shell/appearance";
 const scheme = await sharedColorScheme({ revalidate: 60 }); // App Router: Next's data cache
 const scheme = await sharedColorScheme();                   // Pages Router / elsewhere: kept in memory for a minute
 ```
+
+## Circle colors
+
+Everyone picks the color of their initials circle in HR (My profile). HR gives each person a different color, picked at random to start, and lists it on `GET /api/internal/active-staff` as `avatarColor`.
+
+`Avatar` and the header's account circle look the color up by email, so an app only has to serve the colors, signed-in only, at `GET /api/team/avatar-colors`:
+
+```ts
+// app/api/team/avatar-colors/route.ts
+import { avatarColorsByEmail } from "@team/shell/active-staff";
+
+export async function GET() {
+  if (!(await getSession())) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  return Response.json({ colors: await avatarColorsByEmail() });
+}
+```
+
+The colors load once per page, on the first circle that asks. Until then, and for people without one (anyone outside TEAM, or when HR can't be reached), circles keep their neutral look. A circle drawn by hand can call `useAvatarColor(email)` and set it as the background; the initials are white on every color HR offers. Static pages use `TeamShell.loadAvatarColors()` and then `TeamShell.avatarColorFor(email)`.
 
 ## One sign-in for all apps
 

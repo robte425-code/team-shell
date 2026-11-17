@@ -8,6 +8,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { useAvatarColor } from "../avatar-colors";
 import { InboxIcon, SearchIcon } from "./icons";
 import {
   buttonClass,
@@ -58,17 +59,25 @@ const AVATAR_SIZES = {
   lg: "h-9 w-9 text-[13px]",
 };
 
+/**
+ * A person's initials in a circle, in the color they chose in HR (looked up by `email`; see
+ * ../avatar-colors). `color` overrides the lookup. People without a color stay dark gray.
+ */
 export function Avatar({
   name,
   email,
+  color,
   size = "md",
   className,
 }: {
   name?: string | null;
   email?: string | null;
+  color?: string | null;
   size?: keyof typeof AVATAR_SIZES;
   className?: string;
 }) {
+  const chosen = useAvatarColor(email);
+  const background = color ?? chosen;
   return (
     <span
       aria-hidden
@@ -77,6 +86,7 @@ export function Avatar({
         AVATAR_SIZES[size],
         className
       )}
+      style={background ? { backgroundColor: background } : undefined}
     >
       {initialsFor(name, email)}
     </span>

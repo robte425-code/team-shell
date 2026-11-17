@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type ElementType, type KeyboardEvent, type ReactNode } from "react";
 import type { AdminNavSection, UserNavLink } from "../nav-config";
 import { moveMenuFocus, useDismiss } from "../ui/ActionMenu";
+import { useAvatarColor } from "../avatar-colors";
 import { initialsFor } from "../ui/basics";
 import { ChevronDownIcon, ChevronLeftIcon, CloseIcon, EyeIcon, MenuIcon, SignOutIcon } from "../ui/icons";
 import { cx } from "../ui/styles";
@@ -197,6 +198,8 @@ function AccountMenu({
     ? va.others.filter((u) => `${u.displayName} ${u.email}`.toLowerCase().includes(q))
     : va.others;
   const initials = initialsFor(user?.name, user?.email);
+  const avatarColor = useAvatarColor(user?.email);
+  const avatarStyle = avatarColor ? { backgroundColor: avatarColor } : undefined;
 
   return (
     <div ref={rootRef} className={c.account}>
@@ -210,7 +213,7 @@ function AccountMenu({
         onClick={() => (open ? close(false) : setOpen(true))}
         className={c.accountTrigger}
       >
-        <span aria-hidden className={c.avatar}>
+        <span aria-hidden className={c.avatar} style={avatarStyle}>
           {initials}
         </span>
         <span aria-hidden className={c.accountTriggerName}>
@@ -225,7 +228,7 @@ function AccountMenu({
               {user && (user.name || user.email) ? (
                 <>
                   <div className={c.who}>
-                    <span aria-hidden className={c.avatarLarge}>
+                    <span aria-hidden className={c.avatarLarge} style={avatarStyle}>
                       {initials}
                     </span>
                     <div className={c.whoText}>
