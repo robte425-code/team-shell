@@ -14,9 +14,13 @@ let failed = false;
 try {
   for (const file of readdirSync(dir).filter((f) => f.endsWith(".test.ts")).sort()) {
     const outfile = join(out, file.replace(/\.ts$/, ".cjs"));
-    await build({ entryPoints: [join(dir, file)], bundle: true, platform: "node", format: "cjs", outfile, logLevel: "warning" });
+    // jsdom loads its own files at run time, so it stays a plain require from node_modules.
+    await build({ entryPoints: [join(dir, file)], bundle: true, platform: "node", format: "cjs", outfile, logLevel: "warning", external: ["jsdom"] });
     try {
-      execFileSync(process.execPath, [outfile], { stdio: "inherit" });
+      execFileSync(process.execPath, [outfile], {
+        stdio: "inherit",
+        env: { ...process.env, NODE_PATH: join(here, "..", "node_modules") },
+      });
     } catch {
       failed = true;
     }

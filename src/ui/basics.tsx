@@ -61,7 +61,9 @@ const AVATAR_SIZES = {
 
 /**
  * A person's initials in a circle, in the color they chose in HR (looked up by `email`; see
- * ../avatar-colors). `color` overrides the lookup. People without a color stay dark gray.
+ * ../avatar-colors), with white initials. `color` overrides the lookup. People without a color
+ * get `neutralClassName` (dark gray by default; a spot with its own usual tones passes them).
+ * `className` can resize it ("h-5 w-5 text-[9px]"); `children` go inside (a presence dot).
  */
 export function Avatar({
   name,
@@ -69,12 +71,16 @@ export function Avatar({
   color,
   size = "md",
   className,
+  neutralClassName = "bg-stone-900 text-white",
+  children,
 }: {
   name?: string | null;
   email?: string | null;
   color?: string | null;
   size?: keyof typeof AVATAR_SIZES;
   className?: string;
+  neutralClassName?: string;
+  children?: ReactNode;
 }) {
   const chosen = useAvatarColor(email);
   const background = color ?? chosen;
@@ -82,13 +88,15 @@ export function Avatar({
     <span
       aria-hidden
       className={cx(
-        "inline-grid shrink-0 place-items-center rounded-full bg-stone-900 font-semibold text-white",
+        "relative inline-grid shrink-0 place-items-center rounded-full font-semibold",
         AVATAR_SIZES[size],
+        background ? "text-white" : neutralClassName,
         className
       )}
       style={background ? { backgroundColor: background } : undefined}
     >
       {initialsFor(name, email)}
+      {children}
     </span>
   );
 }

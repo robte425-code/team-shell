@@ -12,6 +12,7 @@ import {
   avatarColorFor,
   cleanAvatarColors,
   loadAvatarColors,
+  loadAvatarColorsData,
   resetAvatarColorsForTests,
   setAvatarColor,
   setAvatarColorsEndpoint,
@@ -39,8 +40,14 @@ async function serverSide() {
         { email: "cy@example.test" },
         { email: "no-at-sign", avatarColor: "#123456" },
       ],
+      colors: { "Di.Leave@example.test": "#0F766E", "x": "#123456", "bo@example.test": "nope" },
     });
-  assert.deepEqual(await avatarColorsByEmail(), { "ann@example.test": "#1d4ed8" }, "only good colors, by lower-case email");
+  assert.deepEqual(
+    await avatarColorsByEmail(),
+    { "ann@example.test": "#1d4ed8", "di.leave@example.test": "#0f766e" },
+    "only good colors, by lower-case email; people on leave (in colors, not users) too"
+  );
+  assert.equal(await isActiveStaffEmail("di.leave@example.test"), false, "a color doesn't make someone active staff");
   assert.equal(await isActiveStaffEmail("bo@example.test"), true, "people without a color are still active staff");
   const before = requested.length;
   await avatarColorsByEmail();
@@ -70,11 +77,32 @@ async function browserSide() {
   setAvatarColor("ann@example.test", null);
   assert.equal(avatarColorFor("ann@example.test"), null);
 
-  resetAvatarColorsForTests();
+  // A failed load is tried again, but not on every circle.
+  let clock = 1_000_000;
+  resetAvatarColorsForTests(() => clock);
   setAvatarColorsEndpoint("/elsewhere");
   respond = () => ({ ok: false, status: 401, json: async () => ({}) });
   assert.deepEqual(await loadAvatarColors(), {}, "signed out or missing route: circles stay neutral");
   assert.equal(requested.at(-1), "/elsewhere");
+  const failedCalls = requested.length;
+  await loadAvatarColors();
+  assert.equal(requested.length, failedCalls, "not straight away");
+  clock += 31_000;
+  respond = () => ok({ colors: { "ann@example.test": "#1d4ed8" }, byId: { "7": "#1d4ed8" } });
+  await loadAvatarColors();
+  assert.equal(avatarColorFor("ann@example.test"), "#1d4ed8", "tried again after half a minute");
+  assert.deepEqual(await loadAvatarColorsData(), { colors: { "ann@example.test": "#1d4ed8" }, byId: { "7": "#1d4ed8" } }, "the whole answer, same request");
+  const loadedCalls = requested.length;
+  clock += 4 * 60_000;
+  await loadAvatarColors();
+  assert.equal(requested.length, loadedCalls, "fresh for five minutes");
+  clock += 2 * 60_000;
+  respond = () => ok({ colors: { "ann@example.test": "#0f766e" } });
+  await loadAvatarColors();
+  assert.equal(avatarColorFor("ann@example.test"), "#0f766e", "a changed color is picked up later");
+  respond = () => ({ ok: false, status: 500, json: async () => ({}) });
+  await loadAvatarColors(true);
+  assert.equal(avatarColorFor("ann@example.test"), "#0f766e", "a failed refresh keeps the colors it had");
 
   assert.deepEqual(cleanAvatarColors(null), {});
   assert.deepEqual(cleanAvatarColors({ "A@B.C": "#ABCDEF" }), { "a@b.c": "#abcdef" });
@@ -86,13 +114,77 @@ function avatar() {
   assert.doesNotMatch(plain, /background-color/, "no color known while rendering on the server");
   const colored = renderToStaticMarkup(createElement(Avatar, { name: "Ann Example", color: "#1d4ed8" }));
   assert.match(colored, /background-color:#1d4ed8/);
+  assert.match(colored, /text-white/);
+  assert.doesNotMatch(colored, /bg-stone-200/);
+  const light = renderToStaticMarkup(
+    createElement(Avatar, { name: "Bo Sample", neutralClassName: "bg-stone-200 text-stone-700" }, createElement("i", { id: "dot" }))
+  );
+  assert.match(light, /bg-stone-200 text-stone-700/, "a spot's own neutral tones");
+  assert.match(light, /<i id="dot"><\/i>/, "children go inside");
+}
+
+/** In a browser: circles render neutral, then take the color when it arrives, all from one request. */
+async function inTheBrowser() {
+  // A plain require: jsdom is left out of the test bundle and found in node_modules.
+  const { JSDOM } = require("jsdom") as typeof import("jsdom");
+  const dom = new JSDOM("<!doctype html><div id=root></div>", { url: "https://app.example.test/" });
+  const g = globalThis as Record<string, unknown>;
+  for (const k of ["window", "document", "HTMLElement", "Node"]) g[k] = (dom.window as unknown as Record<string, unknown>)[k];
+  g.IS_REACT_ACT_ENVIRONMENT = true;
+  const { act } = await import("react");
+  const { createRoot } = await import("react-dom/client");
+
+  requested.length = 0;
+  resetAvatarColorsForTests();
+  let release: () => void = () => {};
+  const gate = new Promise<void>((r) => (release = r));
+  respond = () => ok({ colors: { "ann@example.test": "#0f766e" } });
+  (globalThis as { fetch: unknown }).fetch = async (url: string) => {
+    requested.push(String(url));
+    await gate;
+    return respond(String(url));
+  };
+  const stuck = setTimeout(() => {
+    console.error("avatar-colors: the browser check didn't finish");
+    process.exit(1);
+  }, 20_000);
+  stuck.unref();
+  const root = createRoot(dom.window.document.getElementById("root")!);
+  await act(async () => {
+    root.render(
+      createElement("div", null,
+        createElement(Avatar, { name: "Ann Example", email: "Ann@Example.test" }),
+        createElement(Avatar, { name: "Ann Example", email: "ann@example.test", size: "sm" }),
+        createElement(Avatar, { name: "Cy Outside", email: "cy@elsewhere.test" })
+      )
+    );
+  });
+  const circles = () => [...dom.window.document.querySelectorAll("span[aria-hidden]")] as HTMLElement[];
+  assert.equal(circles()[0].style.backgroundColor, "", "neutral until the colors arrive");
+  await act(async () => {
+    release();
+    await gate;
+    await loadAvatarColors();
+  });
+  assert.equal(requested.length, 1, "one request for every circle on the page");
+  assert.equal(circles()[0].style.backgroundColor, "rgb(15, 118, 110)");
+  assert.equal(circles()[1].style.backgroundColor, "rgb(15, 118, 110)");
+  assert.equal(circles()[2].style.backgroundColor, "", "someone without a color stays neutral");
+  await act(async () => setAvatarColor("ann@example.test", "#1d4ed8"));
+  assert.equal(circles()[0].style.backgroundColor, "rgb(29, 78, 216)", "a change shows at once");
+  await act(async () => root.unmount());
+  dom.window.close();
+  clearTimeout(stuck);
 }
 
 async function main() {
   await serverSide();
   await browserSide();
   avatar();
+  await inTheBrowser();
   console.log("avatar-colors: ok");
+  // React's scheduler keeps a channel open after the browser check; nothing is left to wait for.
+  process.exit(0);
 }
 
 main().catch((e) => {

@@ -141,7 +141,7 @@ const scheme = await sharedColorScheme();                   // Pages Router / el
 
 ## Circle colors
 
-Everyone picks the color of their initials circle in HR (My profile). HR gives each person a different color, picked at random to start, and lists it on `GET /api/internal/active-staff` as `avatarColor`.
+Everyone picks the color of their initials circle in HR (My profile). HR gives each person a different color, picked at random to start, and lists it on `GET /api/internal/active-staff`: as each person's `avatarColor`, and as `colors` for everyone who hasn't left (people on leave included, who aren't in `users`).
 
 `Avatar` and the header's account circle look the color up by email, so an app only has to serve the colors, signed-in only, at `GET /api/team/avatar-colors`:
 
@@ -155,7 +155,7 @@ export async function GET() {
 }
 ```
 
-The colors load once per page, on the first circle that asks. Until then, and for people without one (anyone outside TEAM, or when HR can't be reached), circles keep their neutral look. A circle drawn by hand can call `useAvatarColor(email)` and set it as the background; the initials are white on every color HR offers. Static pages use `TeamShell.loadAvatarColors()` and then `TeamShell.avatarColorFor(email)`.
+The colors load on the first circle that asks, in one request shared by the page. A failed load is tried again after half a minute, and a tab left open picks up changed colors when it's looked at again after five minutes. Until then, and for people without one (anyone outside TEAM, or when HR can't be reached), circles keep their neutral look: dark gray, or a spot's own tones through `<Avatar neutralClassName="bg-stone-200 text-stone-700">`. `className` resizes a circle and `children` go inside it (a presence dot). The initials are white on every color HR offers. `loadAvatarColorsData()` gives the route's whole answer through the same request (HR also sends colors by employee id). Static pages use `TeamShell.loadAvatarColors()` and then `TeamShell.avatarColorFor(email)`.
 
 ## One sign-in for all apps
 

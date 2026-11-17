@@ -35,16 +35,28 @@ async function fetchActiveStaff(env: NodeJS.ProcessEnv = process.env): Promise<A
       console.error(`[active-staff] HR answered ${res.status}; View as shows everyone for now.`);
       return null;
     }
-    const data = (await res.json()) as { users?: { email?: unknown; avatarColor?: unknown }[] };
+    const data = (await res.json()) as {
+      users?: { email?: unknown; avatarColor?: unknown }[];
+      colors?: Record<string, unknown>;
+    };
     if (!Array.isArray(data.users)) return null;
     const emails = new Set<string>();
     const colors: Record<string, string> = {};
+    const addColor = (rawEmail: unknown, rawColor: unknown) => {
+      const email = String(rawEmail ?? "").trim().toLowerCase();
+      const color = String(rawColor ?? "").trim().toLowerCase();
+      if (email.includes("@") && HEX.test(color)) colors[email] = color;
+    };
     for (const u of data.users) {
       const email = String(u?.email ?? "").trim().toLowerCase();
       if (!email.includes("@")) continue;
       emails.add(email);
-      const color = String(u?.avatarColor ?? "").trim().toLowerCase();
-      if (HEX.test(color)) colors[email] = color;
+      addColor(email, u?.avatarColor);
+    }
+    // Everyone who hasn't left, including people on leave who aren't in `users`, so their
+    // circle is the same here as in HR.
+    if (data.colors && typeof data.colors === "object") {
+      for (const [email, color] of Object.entries(data.colors)) addColor(email, color);
     }
     return { emails, colors };
   } catch (e) {

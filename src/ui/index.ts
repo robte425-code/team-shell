@@ -37,6 +37,7 @@ export {
   AVATAR_COLORS_PATH,
   avatarColorFor,
   loadAvatarColors,
+  loadAvatarColorsData,
   setAvatarColor,
   setAvatarColorsEndpoint,
   useAvatarColor,
