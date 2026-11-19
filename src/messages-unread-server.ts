@@ -1,8 +1,13 @@
 import { INTERNAL_FETCH_TIMEOUT_MS, internalAppOrigin } from "./internal-urls";
 
-export type MessagesUnreadStatus = { unread: number };
+/**
+ * unread: the count for the Messages dot. newest: the newest unread message's id (0 if none).
+ * chime: whether the dot should chime for a new one now (the person's choice in Messages, and
+ * not in their quiet hours).
+ */
+export type MessagesUnreadStatus = { unread: number; newest: number; chime: boolean };
 
-const NONE: MessagesUnreadStatus = { unread: 0 };
+const NONE: MessagesUnreadStatus = { unread: 0, newest: 0, chime: false };
 
 /**
  * Server only. How many unread messages this sign-in email has in TEAM Messages, for the
@@ -16,7 +21,7 @@ const NONE: MessagesUnreadStatus = { unread: 0 };
  *   }
  *
  * Asks Messages' GET /api/internal/unread with TEAM_INTERNAL_ACCESS_SECRET. Never throws;
- * { unread: 0 } when Messages can't be asked.
+ * { unread: 0, newest: 0, chime: false } when Messages can't be asked.
  */
 export async function fetchMessagesUnreadForEmail(
   email: string,
@@ -35,9 +40,14 @@ export async function fetchMessagesUnreadForEmail(
       signal: AbortSignal.timeout(INTERNAL_FETCH_TIMEOUT_MS),
     });
     if (!res.ok) return NONE;
-    const data = (await res.json()) as { unread?: unknown };
+    const data = (await res.json()) as { unread?: unknown; newest?: unknown; chime?: unknown };
     const unread = Number(data.unread);
-    return { unread: Number.isFinite(unread) && unread > 0 ? Math.floor(unread) : 0 };
+    const newest = Number(data.newest);
+    return {
+      unread: Number.isFinite(unread) && unread > 0 ? Math.floor(unread) : 0,
+      newest: Number.isSafeInteger(newest) && newest > 0 ? newest : 0,
+      chime: data.chime === true,
+    };
   } catch {
     return NONE;
   }
