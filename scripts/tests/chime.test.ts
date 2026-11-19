@@ -87,6 +87,20 @@ async function inTheBrowser() {
       await tick();
     });
   };
+  // Turned off in Messages: a click starts no sound system at all.
+  answer = { unread: 1, newest: 10, chime: false };
+  let made = 0;
+  (dom.window as unknown as { AudioContext: unknown }).AudioContext = class extends FakeAudio {
+    constructor() {
+      super();
+      made++;
+    }
+  };
+  await render(true, "off");
+  dom.window.dispatchEvent(new dom.window.Event("pointerdown"));
+  await tick();
+  assert.equal(made, 0, "chime off: no audio started on a click");
+  answer = { unread: 1, newest: 10, chime: true };
   await render(true, "a");
   assert.equal(notes, 0, "nothing on load");
   answer = { unread: 2, newest: 11, chime: true };

@@ -81,6 +81,12 @@ function useMessagesUnread(enabled: boolean, refreshKey?: string, chime = false)
     let cancelled = false;
     // The newest unread message in the last answer; null until the first one (no chime on load).
     let newest: number | null = null;
+    // Whether Messages last said the chime is on: until it does, no sound system is started
+    // (on a phone that could interrupt music).
+    let wanted = false;
+    const unlock = () => {
+      if (wanted) unlockChime();
+    };
     const load = () => {
       fetch(MESSAGES_UNREAD_API_PATH, { credentials: "same-origin", cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
@@ -88,6 +94,7 @@ function useMessagesUnread(enabled: boolean, refreshKey?: string, chime = false)
           if (cancelled || !data) return;
           const n = Number(data.unread);
           setUnread(Number.isFinite(n) && n > 0 ? Math.floor(n) : 0);
+          wanted = data.chime === true;
           const chimed = menuChimeFor(newest, data);
           if (chime && chimed && chimeReady() && claimChime(chimed)) playChime();
           const latest = Number(data.newest);
@@ -103,7 +110,7 @@ function useMessagesUnread(enabled: boolean, refreshKey?: string, chime = false)
       if (Number.isFinite(n)) setUnread(Math.max(0, Math.floor(n)));
     };
     const gestures = ["pointerdown", "keydown", "touchstart"] as const;
-    if (chime) for (const g of gestures) window.addEventListener(g, unlockChime, { passive: true });
+    if (chime) for (const g of gestures) window.addEventListener(g, unlock, { passive: true });
     load();
     const timer = window.setInterval(load, MESSAGES_POLL_MS);
     document.addEventListener("visibilitychange", onVisible);
@@ -113,7 +120,7 @@ function useMessagesUnread(enabled: boolean, refreshKey?: string, chime = false)
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener(MESSAGES_UNREAD_EVENT, onEvent);
-      if (chime) for (const g of gestures) window.removeEventListener(g, unlockChime);
+      if (chime) for (const g of gestures) window.removeEventListener(g, unlock);
     };
   }, [enabled, refreshKey, chime]);
 
