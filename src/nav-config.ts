@@ -336,7 +336,6 @@ export function hrAdminSections(
       label: "Onboarding",
       isActive: (p) => p.startsWith("/admin/onboarding"),
     },
-    { href: "/admin/performance", label: "Review cycles", isActive: (p) => p.startsWith("/admin/performance") },
     {
       href: "/admin/acknowledgements",
       label: "Sign-off tracking",
