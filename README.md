@@ -102,10 +102,10 @@ Each app implements `GET/POST/DELETE /api/impersonate` and `GET /api/view-as-use
 
 ## The Messages badge
 
-Every app's menu has a **Messages** link (last). `UserNav` puts a red dot on it, like the Payroll pay-stub dot, when the person has unread messages (the count is in its tooltip): it asks the app's own `GET /api/messages-unread` on load, every minute while the page is visible, and when the tab comes back into view. Each app answers from the server with `fetchMessagesUnreadForEmail()`, which asks Messages' `GET /api/internal/unread` with `TEAM_INTERNAL_ACCESS_SECRET` (and needs `NEXT_PUBLIC_MESSAGES_URL`):
+Every app's menu has a **Messages** link (last). `UserNav` puts a red dot on it, like the Payroll pay-stub dot, when the person has unread messages (the count is in its tooltip): it asks the app's own `GET /api/messages-unread` on load, every 30 seconds (browsers slow this to about once a minute in a background tab), and when the tab comes back into view. Each app answers from the server with `fetchMessagesUnreadForEmail()`, which asks Messages' `GET /api/internal/unread` with `TEAM_INTERNAL_ACCESS_SECRET` (and needs `NEXT_PUBLIC_MESSAGES_URL`):
 
 ```ts
-// app/api/messages-unread/route.ts → { unread: number }
+// app/api/messages-unread/route.ts → { unread, newest, chime }
 import { fetchMessagesUnreadForEmail } from "@team/shell/messages-unread-server";
 export async function GET() {
   const user = await getCurrentUser();
@@ -115,6 +115,8 @@ export async function GET() {
 ```
 
 An app without the route shows no count. The Messages app itself fires `MESSAGES_UNREAD_EVENT` on `window` with its count so the badge changes as soon as messages are read.
+
+**The chime.** When an answer's `newest` (the newest unread message's id) is newer than the last answer's, and Messages says `chime: true` (the person's choice in Messages → Notification settings, and not in their quiet hours), the menu plays the Messages chime (`@team/shell/chime`). It doesn't play on the first answer after a page loads, plays once per message across the app's tabs, and waits for the first click or key press (browsers allow sound only after one). `TeamHeader` turns it off while viewing as someone (`chime` prop; the Payroll script passes it). The Messages app answers its own route without `chime`, since its page plays the chime itself.
 
 ## Server helpers for the other apps
 

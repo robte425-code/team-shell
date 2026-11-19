@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ElementType } from "react";
 import type { UserNavLink } from "../nav-config";
+import { chimeReady, claimChime, menuChimeFor, playChime, unlockChime } from "../chime";
 import {
   MESSAGES_NAV_KEY,
   MESSAGES_UNREAD_API_PATH,
@@ -62,45 +63,66 @@ const unreadMessagesClass =
 /** Window event the Messages app fires with its own count ({ detail: number }), so its badge moves at once. */
 export const MESSAGES_UNREAD_EVENT = "team:messages-unread";
 
-const MESSAGES_POLL_MS = 60 * 1000;
+const MESSAGES_POLL_MS = 30 * 1000;
 
 /**
  * Unread messages for the Messages link: asked of this app's /api/messages-unread on load,
- * every minute while the page is visible, and when the tab comes back into view. An app
- * without the route simply shows no count.
+ * every 30 seconds (browsers slow this to about once a minute in a background tab), and when
+ * the tab comes back into view. An app without the route simply shows no count.
+ *
+ * With `chime`, a newer unread message than the last answer plays the Messages chime, when
+ * Messages says it's on for this person (their setting, and not in their quiet hours).
  */
-function useMessagesUnread(enabled: boolean, refreshKey?: string) {
+function useMessagesUnread(enabled: boolean, refreshKey?: string, chime = false) {
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    // The newest unread message in the last answer; null until the first one (no chime on load).
+    let newest: number | null = null;
+    // Whether Messages last said the chime is on: until it does, no sound system is started
+    // (on a phone that could interrupt music).
+    let wanted = false;
+    const unlock = () => {
+      if (wanted) unlockChime();
+    };
     const load = () => {
-      if (document.visibilityState === "hidden") return;
       fetch(MESSAGES_UNREAD_API_PATH, { credentials: "same-origin", cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           if (cancelled || !data) return;
           const n = Number(data.unread);
           setUnread(Number.isFinite(n) && n > 0 ? Math.floor(n) : 0);
+          wanted = data.chime === true;
+          const chimed = menuChimeFor(newest, data);
+          if (chime && chimed && chimeReady() && claimChime(chimed)) playChime();
+          const latest = Number(data.newest);
+          if (Number.isSafeInteger(latest) && latest >= 0) newest = latest;
         })
         .catch(() => undefined);
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
     };
     const onEvent = (e: Event) => {
       const n = Number((e as CustomEvent).detail);
       if (Number.isFinite(n)) setUnread(Math.max(0, Math.floor(n)));
     };
+    const gestures = ["pointerdown", "keydown", "touchstart"] as const;
+    if (chime) for (const g of gestures) window.addEventListener(g, unlock, { passive: true });
     load();
     const timer = window.setInterval(load, MESSAGES_POLL_MS);
-    document.addEventListener("visibilitychange", load);
+    document.addEventListener("visibilitychange", onVisible);
     window.addEventListener(MESSAGES_UNREAD_EVENT, onEvent);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", load);
+      document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener(MESSAGES_UNREAD_EVENT, onEvent);
+      if (chime) for (const g of gestures) window.removeEventListener(g, unlock);
     };
-  }, [enabled, refreshKey]);
+  }, [enabled, refreshKey, chime]);
 
   return unread;
 }
@@ -113,6 +135,7 @@ export function UserNav({
   variant = "tailwind",
   layout = "bar",
   onNavigate,
+  chime = false,
 }: {
   links: UserNavLink[];
   pathname: string;
@@ -129,12 +152,14 @@ export function UserNav({
   layout?: "bar" | "stack";
   /** Called when a link is followed (closes the phone menu). */
   onNavigate?: () => void;
+  /** Play the Messages chime when a new unread message arrives (off while viewing as someone). */
+  chime?: boolean;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Link = LinkComponent as any;
   const payrollUnread = usePayrollUnread(refreshKey);
   const hasMessagesLink = links.some((l) => l.navKey === MESSAGES_NAV_KEY);
-  const messagesUnread = useMessagesUnread(hasMessagesLink, refreshKey);
+  const messagesUnread = useMessagesUnread(hasMessagesLink, refreshKey, chime);
   const plain = variant === "plain";
   const linkClass = LINK_CLASS[layout];
 

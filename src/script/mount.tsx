@@ -205,6 +205,7 @@ function Shell({
       adminSections={s.adminVisible ? sections : []}
       user={{ name: s.userName, email: s.userEmail, roleLabel: s.userRole }}
       viewAs={viewAs}
+      chime={!s.impersonating}
       signOutHref="/logout"
       banner={
         s.banner ? (

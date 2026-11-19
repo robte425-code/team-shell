@@ -366,6 +366,7 @@ export function TeamHeader({
   adminSections = [],
   user = null,
   viewAs = null,
+  chime,
   onSignOut,
   signOutHref,
   sticky = true,
@@ -391,6 +392,11 @@ export function TeamHeader({
   user?: TeamHeaderUser | null;
   /** View as… settings; null hides it (non-admins). */
   viewAs?: ViewAsOptions | null;
+  /**
+   * Chime for new unread messages (the Messages dot). Default: on, except while viewing as
+   * someone. Whether it actually plays is the person's choice in Messages.
+   */
+  chime?: boolean;
   onSignOut?: (() => void) | null;
   /** A sign-out link instead of onSignOut (Payroll's /logout). */
   signOutHref?: string | null;
@@ -443,6 +449,7 @@ export function TeamHeader({
                 pathname={pathname}
                 LinkComponent={LinkComponent}
                 refreshKey={refreshKey}
+                chime={chime ?? !viewAs?.isImpersonating}
               />
             </nav>
           ) : null}
